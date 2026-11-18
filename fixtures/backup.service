@@ -1,0 +1,6 @@
+[Unit]
+Description=Synthetic backup fixture; do not install
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/demo/backup.sh

@@ -1,0 +1,6 @@
+# Reference only: NOT applied to the user's Codex configuration.
+# Homepage remote endpoint; distinct from Windows v0.1.0 local session MCP.
+# Codex must inherit NUDOX_API_KEY from its environment. No literal key here.
+[mcp_servers.nudox]
+url = "https://mcp.nudox.org/mcp"
+env_http_headers = { NUDOX_API_KEY = "NUDOX_API_KEY" }
