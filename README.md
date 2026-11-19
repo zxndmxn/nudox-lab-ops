@@ -22,8 +22,8 @@ The core idea: a job that succeeded, a fresh snapshot, a passing repository chec
 Needs Node.js 22.18 or newer.
 
 ```sh
-git clone https://github.com/zxndmxn/nudox-lab-map.git
-cd nudox-lab-map
+git clone https://github.com/zxndmxn/nudox-lab-ops.git
+cd nudox-lab-ops
 node dashboard/build.ts lab-ops-demo.html   # demo dashboard, no network
 node lab-ops/demo.ts                        # same briefing as Markdown
 ```
