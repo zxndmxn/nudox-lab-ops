@@ -9,16 +9,23 @@ export function parseArchiveReceipts(input: string): Partial<Record<ArchiveCheck
   if (lines.length !== 5 || lines[0] !== "receipt-v1") {
     throw new Error("Incomplete archive receipt.");
   }
-  const [asOfKey, asOf] = lines[1].split("|");
+  const [asOfKey, asOf, ...extraClockFields] = lines[1].split("|");
   const reference = Number(asOf);
-  if (asOfKey !== "as-of" || !/^\d{10}$/.test(asOf) || reference < 1) {
+  if (asOfKey !== "as-of" || extraClockFields.length || !/^\d{10}$/.test(asOf) ||
+      reference < 1 || reference > Math.floor(Date.now() / 1_000)) {
     throw new Error("Invalid archive receipt clock.");
   }
   const result: Partial<Record<ArchiveCheck, Observation>> = {};
   for (const [position, check] of archiveChecks.entries()) {
     const [id, value, ...extra] = lines[position + 2].split("|");
     if (id !== check || extra.length) throw new Error("Unexpected archive check.");
-    if (value === "missing") continue;
+    if (value === "missing") {
+      result[check] = {
+        observedAt: new Date(reference * 1000).toISOString().replace(".000Z", "Z"),
+        outcome: "failed",
+      };
+      continue;
+    }
     const epoch = Math.floor(Number(value));
     if (!/^\d{10}(?:\.\d+)?$/.test(value) || epoch > reference) {
       throw new Error("Invalid archive timestamp.");

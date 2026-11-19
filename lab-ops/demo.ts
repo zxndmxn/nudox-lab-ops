@@ -40,12 +40,14 @@ const lines = [
   "| Host | Check | State | Last observed UTC | Next check |",
   "| --- | --- | --- | --- | --- |",
   ...briefing.map((row) =>
-    `| ${row.host} | ${row.label} | ${row.state} | ${row.observedAt ?? "—"} | ${row.nextCheck} |`
+    `| ${row.host} | ${row.label} | ${row.state} | ${row.observedAt ?? "none yet"} | ${row.nextCheck} |`
   ),
   "",
   "## Nudox code trace",
   "",
-  "Look up `nextcloudBackupCoverage` to inspect how the two archive checks produce the gap.",
+  nextcloudBackupCoverage(briefing) === "gap"
+    ? "Look up `nextcloudBackupCoverage` to inspect how the two archive checks produce the gap."
+    : "Look up `nextcloudBackupCoverage` to inspect how the two archive checks decide coverage.",
   "Look up `assessObservation` to inspect the freshness rule, then find its caller `buildBriefing`.",
   "",
 ];

@@ -1,6 +1,6 @@
 # Nudox Lab Ops
 
-A homelab maintenance briefing powered by [Nudox](https://nudox.org/). It answers one question each morning: **what needs my attention across Pi 5, Mint and Proxmox, why, and what should I check next?** Nudox traces every finding back to the rule and code that produced it.
+A homelab maintenance briefing for Pi 5, Mint and Proxmox. Lab Ops evaluates local evidence and shows which checks need attention. [Nudox](https://nudox.org/) indexes the briefing rules so you can inspect their source and references in Lindsey.
 
 Part of the KSU AI Hackathon, alongside [DegreePath](https://github.com/zxndmxn/DegreePath_KSUAI).
 
@@ -8,7 +8,7 @@ Part of the KSU AI Hackathon, alongside [DegreePath](https://github.com/zxndmxn/
 
 | Area | State |
 | --- | --- |
-| Lab Ops briefing (backup coverage rules) | Working, 5 tests |
+| Lab Ops briefing (backup coverage rules) | Working, 8 tests |
 | Dashboard with Live and Demo views | Working, offline single HTML file |
 | What changed? panel (Forgejo vs deployed drift) | Working; found real drift on Mint's backup pull script |
 | ntfy alerts | Preview only, nothing is sent |
@@ -42,6 +42,8 @@ The core idea: a successful job, a verified archive and a working restore are th
 
 Live data stays on your machine, outside this checkout.
 
+Live groups checks by host and shows the Proxmox archive path to Mint. Its header shows the newest recorded observation. A successful inventory scan that finds no archive reports a failed check. An unavailable inventory produces no new receipt.
+
 1. Write a local evidence JSON. Each entry is a known check ID with `observedAt` (UTC, e.g. `2026-11-19T12:00:00Z`) and `outcome` (`passed` or `failed`). Missing checks stay **unknown**.
 2. Briefing: `node lab-ops/demo.ts --evidence PATH`
 3. Private dashboard: `node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json]`. It opens on **Live** with a **Demo** tab. Do not share it, since it contains live data.
@@ -72,7 +74,7 @@ hand-written topology (lab-ops/sample.ts)   local evidence JSON (outside repo)
 ## Tests
 
 ```sh
-node --test lab-ops/briefing.test.ts          # 5 tests: coverage rules, evidence parsing, transitions
+node --test lab-ops/briefing.test.ts dashboard/archive-receipts.test.ts
 python -m unittest discover -s tests -v       # 4 tests: dependency map
 ```
 

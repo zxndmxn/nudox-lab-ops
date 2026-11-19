@@ -14,5 +14,8 @@ export const demoEvidence: Readonly<Record<string, Observation>> = {
   "forgejo-archive": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
   "forgejo-present": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
   "forgejo-guest": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
+  "forgejo-dns": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
+  "forgejo-proxy-http": { observedAt: "2026-11-19T10:00:00Z", outcome: "failed" },
   "forgejo-boot": { observedAt: "2026-10-15T10:00:00Z", outcome: "passed" },
+  "forgejo-restore-http": { observedAt: "2026-10-15T10:05:00Z", outcome: "passed" },
 };

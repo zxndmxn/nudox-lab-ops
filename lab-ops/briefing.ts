@@ -111,9 +111,37 @@ export const requirements: ReadonlyArray<Requirement> = [
   {
     id: "forgejo-boot",
     host: "Proxmox",
-    label: "Forgejo isolated boot and Git check",
+    label: "Forgejo isolated restore boot",
     intervalHours: 720,
-    nextCheck: "Plan an isolated restore and verify HTTP health and a test Git clone.",
+    nextCheck: "Find a receipt for a restored guest that booted in isolation.",
+  },
+  {
+    id: "forgejo-restore-http",
+    host: "Proxmox",
+    label: "Forgejo HTTP check after restore",
+    intervalHours: 720,
+    nextCheck: "Check Forgejo HTTP health inside the isolated restore.",
+  },
+  {
+    id: "forgejo-restore-clone",
+    host: "Proxmox",
+    label: "Forgejo test clone after restore",
+    intervalHours: 720,
+    nextCheck: "Clone a disposable repo from the restored instance and verify its expected ref.",
+  },
+  {
+    id: "forgejo-dns",
+    host: "Proxmox",
+    label: "Forgejo DNS resolution",
+    intervalHours: 24,
+    nextCheck: "Resolve the service name from a lab client and compare it with the expected proxy address.",
+  },
+  {
+    id: "forgejo-proxy-http",
+    host: "Proxmox",
+    label: "Forgejo HTTP through the proxy",
+    intervalHours: 24,
+    nextCheck: "Check the proxy route with the expected host name. Verify the upstream separately if it fails.",
   },
 ];
 

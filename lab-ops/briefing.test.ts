@@ -28,12 +28,33 @@ test("job evidence does not stand in for snapshot evidence", () => {
   assert.equal(briefing.find((row) => row.id === "pi5-backup")?.state, "unknown");
 });
 
+test("a running Forgejo guest and boot receipt do not imply a working restored clone", () => {
+  const rows = buildBriefing(parseEvidence({
+    "forgejo-guest": fresh,
+    "forgejo-boot": fresh,
+  }), now);
+  assert.equal(rows.find((row) => row.id === "forgejo-boot")?.state, "current");
+  assert.equal(rows.find((row) => row.id === "forgejo-restore-http")?.state, "unknown");
+  assert.equal(rows.find((row) => row.id === "forgejo-restore-clone")?.state, "unknown");
+});
+
 test("evidence cannot carry arbitrary fields, timestamps or check IDs", () => {
   assert.throws(() => parseEvidence({ "forgejo-guest": { ...fresh, payload: "private" } }));
   assert.throws(() => parseEvidence({ "private-hostname": fresh }));
   assert.throws(() => parseEvidence({
     "forgejo-guest": { ...fresh, observedAt: "2026-02-30T00:00:00Z" },
   }));
+});
+
+test("a working resolver and running guest can coexist with a failed proxy route", () => {
+  const rows = buildBriefing(parseEvidence({
+    "forgejo-dns": fresh,
+    "forgejo-proxy-http": { ...fresh, outcome: "failed" },
+    "forgejo-guest": fresh,
+  }), now);
+  for (const [id, state] of [["forgejo-dns", "current"], ["forgejo-proxy-http", "failed"], ["forgejo-guest", "current"]]) {
+    assert.equal(rows.find((row) => row.id === id)?.state, state);
+  }
 });
 
 test("notification previews follow coverage transitions and ignore steady state", () => {

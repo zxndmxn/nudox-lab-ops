@@ -49,6 +49,8 @@ function demoView() {
     "mint-forgejo-service": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
     "mint-forgejo-timer": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
     "forgejo-guest": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
+    "forgejo-dns": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
+    "forgejo-proxy-http": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
   }, yesterday);
   const staleRows = buildBriefing(demoEvidence, demoDate);
   const freshRows = buildBriefing({
