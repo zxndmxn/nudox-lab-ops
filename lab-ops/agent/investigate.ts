@@ -2,7 +2,8 @@
 // the dashboard. Codex works in a disposable copy (the only folder its sandbox can write), has no
 // network or host access, and is told to only read. Addresses are redacted before it sees anything.
 //
-// Usage: node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --out FINDINGS.json [--receipts DIR] [--nudox MCP_URL]
+// Usage: node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --out FINDINGS.json [--receipts DIR] [--no-nudox]
+// When Nudox (Lindsey) is running and signed in, Codex gets its local MCP server for code lookups.
 import { spawn, spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,9 +17,9 @@ const opt = (name: string) => { const i = args.indexOf(name); return i >= 0 ? ar
 const evidencePath = opt("--evidence");
 const outPath = opt("--out");
 const receiptsDir = opt("--receipts");
-const nudoxUrl = opt("--nudox") ?? process.env.LAB_OPS_NUDOX_MCP;
+const noNudox = args.includes("--no-nudox");
 if (!evidencePath || !outPath) {
-  throw new Error("Usage: node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --out FINDINGS.json [--receipts DIR] [--nudox MCP_URL]");
+  throw new Error("Usage: node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --out FINDINGS.json [--receipts DIR] [--no-nudox]");
 }
 
 function findCodex(): string {
@@ -34,11 +35,34 @@ function findCodex(): string {
   throw new Error("Codex is not installed. Install the Codex app or CLI, or set CODEX_BIN.");
 }
 
+// Lindsey writes its loopback MCP port and per-launch session token here. The token only works on
+// this machine for this launch; the account key never leaves Lindsey.
+async function findNudox(): Promise<{ url: string; token: string } | null> {
+  const home = process.env.LOCALAPPDATA ?? join(process.env.HOME ?? "", ".local", "share");
+  try {
+    const { port, token } = JSON.parse(readFileSync(join(home, "nudox", "endpoint.json"), "utf8"));
+    const url = `http://127.0.0.1:${port}/mcp`;
+    const headers = { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` };
+    const post = (body: object, sid?: string | null) => fetch(url, { method: "POST", signal: AbortSignal.timeout(4000),
+      headers: { ...headers, ...(sid ? { "mcp-session-id": sid } : {}) }, body: JSON.stringify({ jsonrpc: "2.0", ...body }) });
+    const init = await post({ id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "lab-ops-probe", version: "1" } } });
+    const sid = init.headers.get("mcp-session-id");
+    await init.text();
+    await post({ method: "notifications/initialized", params: {} }, sid).then((r) => r.text());
+    // packages is a cheap call that also proves the account is signed in.
+    const probe = await (await post({ id: 2, method: "tools/call", params: { name: "packages", arguments: {} } }, sid)).text();
+    if (probe.includes("not_signed_in")) { console.error("Nudox is running but not signed in. The agent will run without it."); return null; }
+    return init.ok ? { url, token } : null;
+  } catch { return null; }
+}
+
 // Hostnames and addresses never leave the machine in a prompt.
 const redact = (text: string) => text
   .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "<ip>")
   .replace(/\b[\w.-]+@[\w.-]+\b/g, "<user@host>");
 
+const nudox = noNudox ? null : await findNudox();
+console.error(nudox ? "Nudox code lookup: on" : "Nudox code lookup: off");
 const now = new Date();
 const briefing = buildBriefing(loadLocalEvidence(evidencePath), now);
 const attention = needsAttention(briefing);
@@ -68,10 +92,19 @@ try {
     ...briefing.map(line),
     "",
     `Receipts in receipts/: ${readdirSync(join(work, "receipts")).join(", ") || "none"}`,
+    "",
+    nudox
+      ? "Nudox: available. The `nudox` MCP server has the Lab Ops rules indexed as package `lab-ops`. Use its search, refs and read tools to find every rule you cite."
+      : "Nudox: not available this run. Read rules/briefing.ts directly.",
   ].join("\n"));
 
   const config = ["-c", 'model_reasoning_effort="medium"'];
-  if (nudoxUrl) config.push("-c", `mcp_servers.nudox.url="${nudoxUrl}"`);
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (nudox) {
+    config.push("-c", `mcp_servers.nudox.url="${nudox.url}"`,
+      "-c", 'mcp_servers.nudox.env_http_headers={ Authorization = "LAB_OPS_NUDOX_AUTH" }');
+    env.LAB_OPS_NUDOX_AUTH = `Bearer ${nudox.token}`;
+  }
   const prompt = readFileSync(new URL("./PROMPT.md", import.meta.url), "utf8");
   const last = `${work}-result.json`; // outside the agent folder so Codex never reads its own output
   const child = spawn(findCodex(), [
@@ -79,7 +112,7 @@ try {
     "--color", "never", "-C", work,
     "--output-schema", fileURLToPath(new URL("./schema.json", import.meta.url)),
     "-o", last, ...config, "-",
-  ], { stdio: ["pipe", "pipe", "inherit"], windowsHide: true });
+  ], { stdio: ["pipe", "pipe", "inherit"], windowsHide: true, env });
   child.stdin.end(prompt);
 
   // Keep a readable trace of what the agent looked at, for the dashboard.
@@ -101,7 +134,11 @@ try {
           trace.push({ kind: "ran", text: command.slice(0, 160) });
           process.stderr.write(`  ran: ${String(item.command).slice(0, 100)}\n`);
         } else if (item.type === "mcp_tool_call") {
-          if (item.server === "nudox") trace.push({ kind: "nudox", text: `${item.tool ?? "lookup"}` });
+          if (item.server === "nudox") {
+            const detail = item.arguments ? " " + JSON.stringify(item.arguments).slice(0, 80) : "";
+            trace.push({ kind: "nudox", text: `${item.tool ?? "lookup"}${detail}` });
+            process.stderr.write(`  nudox: ${item.tool}${detail}\n`);
+          }
         } else if (item.type === "reasoning" && item.text) {
           trace.push({ kind: "thought", text: String(item.text).replace(/\s+/g, " ").slice(0, 200) });
         }
@@ -116,7 +153,7 @@ try {
     generatedAt: now.toISOString(),
     agent: "Codex",
     sandbox: "disposable copy",
-    nudox: Boolean(nudoxUrl),
+    nudox: Boolean(nudox),
     summary: result.summary,
     findings: result.findings,
     trace: trace.slice(0, 40),

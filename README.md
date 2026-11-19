@@ -14,7 +14,7 @@ The core idea: a job that succeeded, a fresh snapshot, a passing repository chec
 | Dashboard: Live and Demo views, attention list, what changed | Working, offline single HTML file |
 | Forgejo drift (deployed vs checked-in backup script) | Working; found real drift on Mint |
 | Agent investigation (Codex reads receipts, explains next steps) | Working on real receipts, about a minute per run |
-| Nudox code lookup | Working with the patched Windows client over local MCP |
+| Nudox code lookup | Agent uses it automatically when Lindsey is running and signed in |
 | ntfy alert | Preview only, nothing is sent |
 
 ## Quick start
@@ -46,7 +46,7 @@ node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json] --agent FINDINGS.
 - Uses the Codex CLI (or the one inside the Codex desktop app). Set `CODEX_BIN` if it is somewhere else.
 - Codex works in a disposable copy of the briefing, receipts and rules. It has no network or host access and is told to only read. IP addresses and `user@host` strings are redacted first.
 - Output follows `lab-ops/agent/schema.json`: a summary and up to four findings with severity, evidence as `file:line`, and a next step.
-- Add `--nudox MCP_URL` (or `LAB_OPS_NUDOX_MCP`) to let Codex use Nudox for code lookup.
+- If Nudox (Lindsey) is running and signed in, the agent finds its local MCP server automatically and Codex uses Nudox `search`, `refs` and `read` to cite the rules. `--no-nudox` turns that off.
 - The Demo view shows `lab-ops/agent/sample-findings.json`, a fictional sample run.
 
 ## Live evidence
@@ -61,9 +61,10 @@ An SSH job result never fills in snapshot, archive or restore checks. Time limit
 
 ## Using Nudox
 
-1. Get an API key from the [Nudox dashboard](https://dashboard.nudox.org/).
-2. Run the Windows client (Lindsey) and point it at the `lab-ops` folder.
-3. Verified lookups over local MCP: `nextcloudBackupCoverage` resolves, and `buildBriefing` is an incoming reference to `assessObservation`.
+1. Get an API key from the [Nudox dashboard](https://dashboard.nudox.org/) and sign in to Lindsey (or set `NUDOX_API_KEY` in your user environment).
+2. Start Lindsey with `NUDOX_CORPUS=package`, `NUDOX_PACKAGE_ROOT=<repo>/lab-ops`, `NUDOX_PACKAGE_LANGUAGE=TypeScript`.
+3. Lindsey writes its loopback MCP port and session token to `%LOCALAPPDATA%\nudox\endpoint.json`; the agent reads it from there. The account key never leaves Lindsey.
+4. Windows is on Lindsey v0.1.0 (the newest Windows build). The hosted endpoint `mcp.nudox.org` currently serves a self-signed certificate, so Lab Ops uses the local server.
 
 Lindsey v0.1.0 on Windows can open to a black window (oversized initial surface, then DXGI device loss). A local patch setting the initial size to 1280 x 800 fixes it.
 
