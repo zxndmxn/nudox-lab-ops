@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Nudox Lab Ops</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #111817;
+      --surface: #1a2523;
+      --border: #374945;
+      --text: #f0f6f3;
+      --muted: #b7c8c3;
+      --current: #a1e4af;
+      --attention: #f5ce88;
+      --failed: #ffaba6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--background); font: 16px/1.55 system-ui, sans-serif; }
+    main { max-width: 1120px; padding: 32px clamp(18px, 5vw, 48px); margin: auto; }
+    h1 { margin: 5px 0 0; font-size: clamp(2.3rem, 6vw, 4.5rem); letter-spacing: -.065em; line-height: 1.08; }
+    h2 { margin: 0 0 12px; font-size: 1.25rem; }
+    p { margin: .4em 0; }
+    .meta { color: var(--muted); font-size: .9rem; }
+    .mode { color: var(--current); font-weight: 700; }
+    section { margin-top: 28px; }
+    .summary { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+    .summary p { max-width: 70ch; color: var(--muted); }
+    .filters, #scenarios, #views { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    [hidden] { display: none !important; }
+    .routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .routes li { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface); }
+    .routes strong { display: block; }
+    button { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 13px; font: inherit; cursor: pointer; }
+    button[aria-pressed=true] { color: var(--background); background: var(--current); border-color: var(--current); font-weight: 700; }
+    button:focus-visible { outline: 2px solid var(--attention); outline-offset: 3px; }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; text-align: left; }
+    th, td { vertical-align: top; padding: 12px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-size: .9rem; }
+    td:nth-child(2), td:nth-child(3) { white-space: nowrap; }
+    .state { text-transform: capitalize; font-weight: 650; }
+    .current { color: var(--current); }
+    .stale, .gap { color: var(--attention); }
+    .failed { color: var(--failed); }
+    .unknown { color: var(--muted); }
+    code { color: var(--current); font-size: .93em; }
+    @media (max-width: 600px) { main { padding-top: 22px; } td:last-child { min-width: 210px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta" id="data-mode" hidden></p>
+    <h1>Nudox Lab Ops</h1>
+    <p>Maintenance briefing for Pi 5, Mint, and Proxmox</p>
+    <div id="views" role="group" aria-label="Dashboard view" hidden></div>
+  </header>
+  <section class="summary" aria-labelledby="coverage">
+    <h2 id="coverage"></h2>
+    <p id="summary" aria-live="polite"></p>
+    <div id="scenarios" role="group" aria-label="Demo scenario"></div>
+  </section>
+  <section aria-labelledby="paths-title">
+    <h2 id="paths-title">Nextcloud recovery paths</h2>
+    <ul class="routes" id="routes"></ul>
+  </section>
+  <section class="summary" aria-labelledby="changes-title">
+    <h2 id="changes-title">What changed?</h2>
+    <p class="meta" id="comparison"></p>
+    <ul id="changes"></ul>
+    <details id="alert-preview" hidden>
+      <summary>ntfy preview</summary>
+      <p id="alert-title"></p>
+      <p id="alert-message"></p>
+    </details>
+  </section>
+  <section aria-labelledby="checks-title">
+    <h2 id="checks-title">Evidence and next checks</h2>
+    <div class="filters" id="filters" role="group" aria-label="Filter by host"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Check</th><th scope="col">State</th><th scope="col">Evidence time (UTC)</th><th scope="col">Next check</th></tr></thead>
+        <tbody id="checks"></tbody>
+      </table>
+    </div>
+  </section>
+  <section aria-labelledby="trace-title">
+    <h2 id="trace-title">Trace a finding in Nudox</h2>
+    <p>Search for <code>nextcloudBackupCoverage</code> to see how the two archives affect coverage. Find <code>buildBriefing</code> under the incoming references to <code>assessObservation</code> to trace how evidence is evaluated.</p>
+  </section>
+</main>
+<script id="briefing-data" type="application/json">__BRIEFING_DATA__</script>
+<script>
+  const data = JSON.parse(document.getElementById("briefing-data").textContent);
+  const byId = (id) => document.getElementById(id);
+  const stamp = (value) => value ? value.slice(0, 16).replace("T", " ") : "—";
+  let selectedView = data.live ? "live" : "demo";
+  let selectedHost = "All hosts";
+  let selectedScenario = 0;
+
+  function button(label, pressed, action, group) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.textContent = label;
+    item.setAttribute("aria-pressed", pressed);
+    item.addEventListener("click", () => {
+      group.querySelectorAll("button").forEach((entry) => entry.setAttribute("aria-pressed", entry === item));
+      action();
+      render();
+    });
+    group.append(item);
+  }
+
+  function render() {
+    const { coverage, rows, changes, comparedAt, alert } = data[selectedView].scenarios[selectedScenario];
+    const file = rows.find((row) => row.id === "nextcloud-files");
+    const guest = rows.find((row) => row.id === "nextcloud-guest");
+    const restore = rows.find((row) => row.id === "nextcloud-restore");
+    byId("coverage").textContent = "Nextcloud backup coverage · " + coverage;
+    byId("coverage").className = coverage;
+    byId("summary").textContent = "Guest archive: " + guest.state + ". Separate file archive: " + file.state +
+      ". Restore drill: " + restore.state + ". Archive presence and a successful restore are separate checks.";
+    byId("comparison").textContent = comparedAt
+      ? "Compared with " + stamp(comparedAt) + " UTC"
+      : "Save a baseline to compare the next check.";
+    const changeList = byId("changes");
+    changeList.replaceChildren();
+    for (const change of changes) {
+      const item = document.createElement("li");
+      const after = change.id.startsWith("mint-forgejo-") && change.after === "failed"
+        ? "drift detected" : change.after;
+      item.textContent = change.host + " · " + change.label + ": " + change.before + " → " + after;
+      changeList.append(item);
+    }
+    if (comparedAt && !changes.length) {
+      const item = document.createElement("li");
+      item.textContent = "No check states changed.";
+      changeList.append(item);
+    }
+    byId("alert-preview").hidden = !alert;
+    byId("alert-title").textContent = alert?.title ?? "";
+    byId("alert-message").textContent = alert?.message ?? "";
+    const routes = byId("routes");
+    routes.replaceChildren();
+    for (const [label, route, row] of [
+      ["Guest archive", "Proxmox guest to Mint backup storage", guest],
+      ["File archive", "Separate Nextcloud data pull to Mint", file],
+      ["Restore drill", "Isolated recovery of both archives", restore],
+    ]) {
+      const card = document.createElement("li");
+      const name = document.createElement("strong");
+      name.textContent = label;
+      const detail = document.createElement("p");
+      detail.textContent = route;
+      const state = document.createElement("span");
+      state.textContent = row.state;
+      state.className = "state " + row.state;
+      card.append(name, detail, state);
+      routes.append(card);
+    }
+    const body = byId("checks");
+    body.replaceChildren();
+    const priority = { failed: 0, stale: 1, unknown: 2, current: 3 };
+    for (const row of [...rows].sort((a, b) => priority[a.state] - priority[b.state])) {
+      if (selectedHost !== "All hosts" && row.host !== selectedHost) continue;
+      const entry = body.insertRow();
+      entry.insertCell().textContent = row.host + " · " + row.label;
+      const state = entry.insertCell();
+      state.textContent = row.id.startsWith("mint-forgejo-") && row.state === "failed"
+        ? "Drift" : row.state;
+      state.className = "state " + row.state;
+      entry.insertCell().textContent = stamp(row.observedAt);
+      entry.insertCell().textContent = row.nextCheck;
+    }
+  }
+
+  function selectView(view) {
+    selectedView = view;
+    selectedScenario = 0;
+    selectedHost = "All hosts";
+    byId("alert-preview").open = false;
+    byId("data-mode").hidden = view !== "live";
+    byId("data-mode").textContent = view === "live" ? "Local evidence · " + stamp(data.live.asOf) + " UTC" : "";
+    const filters = byId("filters");
+    filters.replaceChildren();
+    for (const host of ["All hosts", ...new Set(data[view].scenarios[0].rows.map((row) => row.host))]) {
+      button(host, host === selectedHost, () => { selectedHost = host; }, filters);
+    }
+    const choices = byId("scenarios");
+    choices.replaceChildren();
+    choices.hidden = view !== "demo";
+    if (view === "demo") data.demo.scenarios.forEach((scenario, index) => {
+      button(scenario.label, index === 0, () => { selectedScenario = index; }, byId("scenarios"));
+    });
+  }
+  if (data.live) {
+    const views = byId("views");
+    views.hidden = false;
+    button("Live", true, () => selectView("live"), views);
+    button("Demo", false, () => selectView("demo"), views);
+  }
+  selectView(selectedView);
+  render();
+</script>
+</body>
+</html>
