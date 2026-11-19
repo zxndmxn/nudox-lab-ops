@@ -1,4 +1,4 @@
-# Lab Ops
+﻿# Lab Ops
 
 Is my homelab actually recoverable? Lab Ops answers that for a Pi 5, a Mint backup box and a Proxmox host. It reads local receipts (restic jobs and snapshots, repository checks, Proxmox archives, Forgejo drift), shows what needs attention, and asks Codex to investigate and explain what to do next. [Nudox](https://nudox.org/) indexes the rules so you can jump to the code behind any state.
 
@@ -64,9 +64,9 @@ An SSH job result never fills in snapshot, archive or restore checks. Time limit
 1. Get an API key from the [Nudox dashboard](https://dashboard.nudox.org/) and sign in to Lindsey (or set `NUDOX_API_KEY` in your user environment).
 2. Start Lindsey with `NUDOX_CORPUS=package`, `NUDOX_PACKAGE_ROOT=<repo>/lab-ops`, `NUDOX_PACKAGE_LANGUAGE=TypeScript`.
 3. Lindsey writes its loopback MCP port and session token to `%LOCALAPPDATA%\nudox\endpoint.json`; the agent reads it from there. The account key never leaves Lindsey.
-4. Windows is on Lindsey v0.1.0 (the newest Windows build). The hosted endpoint `mcp.nudox.org` currently serves a self-signed certificate, so Lab Ops uses the local server.
+4. Windows is on Lindsey v0.1.0 (the newest Windows build). The hosted endpoint `mcp.nudox.org` currently serves Traefik's default certificate, so HTTPS clients reject it and Lab Ops uses the local server on loopback. No WSL needed.
 
-Lindsey v0.1.0 on Windows can open to a black window (oversized initial surface, then DXGI device loss). A local patch setting the initial size to 1280 x 800 fixes it.
+Lindsey v0.1.0 on Windows opens to a black window: `CreateWindowExW` gets `CW_USEDEFAULT` for width and height, the renderer casts it to u32 (a 2147483648 x 2147483648 surface, clamped to 16384), and DX12 loses the device (0x887A0005). Hardcoding the initial size to 1280 x 800 fixes it; the patched client runs natively with MCP.
 
 ## How it works
 
