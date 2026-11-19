@@ -1,53 +1,61 @@
-# Nudox Lab Ops
+# Lab Ops
 
-A homelab maintenance briefing for Pi 5, Mint and Proxmox. Lab Ops evaluates local evidence and shows which checks need attention. [Nudox](https://nudox.org/) indexes the briefing rules so you can inspect their source and references in Lindsey.
+Is my homelab actually recoverable? Lab Ops answers that for a Pi 5, a Mint backup box and a Proxmox host. It reads local receipts (restic jobs and snapshots, repository checks, Proxmox archives, Forgejo drift), shows what needs attention, and asks Codex to investigate and explain what to do next. [Nudox](https://nudox.org/) indexes the rules so you can jump to the code behind any state.
 
 Part of the KSU AI Hackathon, alongside [DegreePath](https://github.com/zxndmxn/DegreePath_KSUAI).
+
+The core idea: a job that succeeded, a fresh snapshot, a passing repository check and a working restore are four different facts. Lab Ops never lets one stand in for another.
 
 ## Status
 
 | Area | State |
 | --- | --- |
-| Lab Ops briefing (backup coverage rules) | Working, 8 tests |
-| Dashboard with Live and Demo views | Working, offline single HTML file |
-| What changed? panel (Forgejo vs deployed drift) | Working; found real drift on Mint's backup pull script |
-| ntfy alerts | Preview only, nothing is sent |
-| Nudox code lookup over local MCP | Working with the patched Windows client |
-| Backup dependency map (Python) | Working on synthetic fixtures, 4 tests |
-| Restore receipts, DNS/NPM tracing, n8n inbox | Planned ([docs/integrations.md](docs/integrations.md)) |
+| Restic readiness (job, snapshot, repository check) | Working, tested |
+| Dashboard: Live and Demo views, attention list, what changed | Working, offline single HTML file |
+| Forgejo drift (deployed vs checked-in backup script) | Working; found real drift on Mint |
+| Agent investigation (Codex reads receipts, explains next steps) | Working on real receipts, about a minute per run |
+| Nudox code lookup | Working with the patched Windows client over local MCP |
+| ntfy alert | Preview only, nothing is sent |
 
 ## Quick start
 
-Needs Node.js 22.18 or newer and Python 3.11 or newer.
+Needs Node.js 22.18 or newer.
 
 ```sh
 git clone https://github.com/zxndmxn/nudox-lab-map.git
 cd nudox-lab-map
-node lab-ops/demo.ts                      # Markdown briefing (Obsidian renders the map)
-node dashboard/build.ts lab-ops-demo.html # shareable demo dashboard
+node dashboard/build.ts lab-ops-demo.html   # demo dashboard, no network
+node lab-ops/demo.ts                        # same briefing as Markdown
 ```
-
-Open the HTML file in a browser. It makes no network requests.
 
 ## The demo story
 
-1. The Proxmox guest backup for Nextcloud is fresh, so a normal dashboard shows green.
-2. Nextcloud's **separate** file archive is stale. Lab Ops flags a coverage gap.
-3. Switch **Stale file archive / Fresh file archive** to watch the gap open and clear, with an ntfy preview for each change.
-4. In Nudox, search `assessObservation` and open References to land on `buildBriefing`, the code behind the finding.
+1. The Pi 5 restic job reports **success**. A normal dashboard shows green.
+2. The newest snapshot is 11 days old. Lab Ops flags **Restic backups: Gap**.
+3. The agent panel explains why: the job runs but writes nothing, and it names the exact checks and next command.
+4. Switch **Snapshot missing / Snapshot verified** to watch the gap open and clear, with an ntfy preview for each change.
+5. In Nudox, search `resticReadiness` to land on the rule behind the verdict.
 
-The core idea: a successful job, a verified archive and a working restore are three different facts. Lab Ops never lets one stand in for another.
+## Agent investigation
 
-## Using live evidence
+```sh
+node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --receipts RECEIPTS_DIR --out FINDINGS.json
+node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json] --agent FINDINGS.json
+```
+
+- Uses the Codex CLI (or the one inside the Codex desktop app). Set `CODEX_BIN` if it is somewhere else.
+- Codex works in a disposable copy of the briefing, receipts and rules. It has no network or host access and is told to only read. IP addresses and `user@host` strings are redacted first.
+- Output follows `lab-ops/agent/schema.json`: a summary and up to four findings with severity, evidence as `file:line`, and a next step.
+- Add `--nudox MCP_URL` (or `LAB_OPS_NUDOX_MCP`) to let Codex use Nudox for code lookup.
+- The Demo view shows `lab-ops/agent/sample-findings.json`, a fictional sample run.
+
+## Live evidence
 
 Live data stays on your machine, outside this checkout.
 
-Live groups checks by host and shows the Proxmox archive path to Mint. Its header shows the newest recorded observation. A successful inventory scan that finds no archive reports a failed check. An unavailable inventory produces no new receipt.
-
-1. Write a local evidence JSON. Each entry is a known check ID with `observedAt` (UTC, e.g. `2026-11-19T12:00:00Z`) and `outcome` (`passed` or `failed`). Missing checks stay **unknown**.
-2. Briefing: `node lab-ops/demo.ts --evidence PATH`
-3. Private dashboard: `node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json]`. It opens on **Live** with a **Demo** tab. Do not share it, since it contains live data.
-4. Baseline for the next run: `node dashboard/snapshot.ts EVIDENCE.json > BASELINE.json`. Without a baseline, Live shows no transitions.
+1. Write a local evidence JSON: known check IDs with `observedAt` (UTC, e.g. `2026-11-19T12:00:00Z`) and `outcome` (`passed` or `failed`). Missing checks stay **Needs verification**.
+2. Dashboard: `node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json] [--agent FINDINGS.json]`. It opens on **Live** with a **Demo** tab. Do not share it.
+3. Baseline for the next run: `node dashboard/snapshot.ts EVIDENCE.json > BASELINE.json`.
 
 An SSH job result never fills in snapshot, archive or restore checks. Time limits are demo defaults.
 
@@ -55,62 +63,42 @@ An SSH job result never fills in snapshot, archive or restore checks. Time limit
 
 1. Get an API key from the [Nudox dashboard](https://dashboard.nudox.org/).
 2. Run the Windows client (Lindsey) and point it at the `lab-ops` folder.
-3. Query through local MCP. Verified lookups: `nextcloudBackupCoverage` resolves, and `buildBriefing` is an incoming reference to `assessObservation`.
+3. Verified lookups over local MCP: `nextcloudBackupCoverage` resolves, and `buildBriefing` is an incoming reference to `assessObservation`.
 
-Lindsey v0.1.0 on Windows can open to a black window (oversized initial surface, then DXGI device loss). A local patch setting the initial size to 1280 x 800 fixes it. `docs/codex-mcp.example.toml` shows the remote MCP config shape.
+Lindsey v0.1.0 on Windows can open to a black window (oversized initial surface, then DXGI device loss). A local patch setting the initial size to 1280 x 800 fixes it.
 
 ## How it works
 
 ```
-hand-written topology (lab-ops/sample.ts)   local evidence JSON (outside repo)
-                \                           /
-             rules + briefing (lab-ops/briefing.ts, evidence.ts, changes.ts)
-                              |
-          Markdown briefing  /  dashboard (dashboard/)  /  ntfy preview
-                              |
-            Nudox indexes lab-ops/ for code lookup and impact
+local receipts (outside repo) ──> evidence JSON ──> rules (lab-ops/briefing.ts) ──> dashboard + Markdown briefing
+                         \                                   │
+                          └──> Codex agent (lab-ops/agent) ──┘  findings with evidence and next steps
+                                                     Nudox indexes lab-ops/ for code lookup
 ```
 
 ## Tests
 
 ```sh
 node --test lab-ops/briefing.test.ts dashboard/archive-receipts.test.ts
-python -m unittest discover -s tests -v       # 4 tests: dependency map
+python -m unittest discover -s tests -v       # dependency map
 ```
 
 ## Privacy and data
 
-- Nudox only indexes `lab-ops/`: hand-written relationships and fictional observations.
-- Vault notes, `Personal/`, scripts, configs, IPs, logs and credentials never enter the indexed package or Git.
-- Nudox's servers do see key validation and request counts.
-- `vault_index.py` is an optional local inventory. It skips `Personal` folders, never reads note bodies, and its output belongs outside the repo.
-
-## Backup dependency map
-
-The original pilot: select a component, trace what a change would affect, and see which recovery checks lack evidence. Uses synthetic fixtures only.
-
-```sh
-python impact.py   # then open dist/index.html
-```
+- Receipts, evidence, findings and live dashboards stay outside the repo. The build refuses to write live output inside the checkout.
+- The agent sees redacted receipts only. Nudox only indexes `lab-ops/`: hand-written rules and fictional observations.
+- Vault notes, scripts, configs, IPs, logs and credentials never enter Git or the indexed package.
 
 ## Project layout
 
 | Path | What it does |
 | --- | --- |
-| `lab-ops/briefing.ts` | Coverage rules and `buildBriefing` |
+| `lab-ops/briefing.ts` | Checks, freshness rule, `resticReadiness`, `needsAttention` |
 | `lab-ops/evidence.ts` | Parses local evidence JSON |
-| `lab-ops/changes.ts` | What changed since the last baseline |
-| `lab-ops/sample.ts` | Hand-written topology and fictional observations |
+| `lab-ops/changes.ts` | What changed since the last baseline, ntfy preview |
+| `lab-ops/agent/` | Codex investigation: prompt, output schema, runner, sample run |
+| `lab-ops/sample.ts` | Fictional demo observations |
 | `lab-ops/demo.ts` | Markdown briefing CLI |
 | `dashboard/` | Dashboard builder, snapshots, receipt and drift merges |
-| `impact.py`, `viewer.html`, `tests/` | Backup dependency map |
+| `impact.py`, `viewer.html`, `tests/` | Original backup dependency map pilot (synthetic) |
 | `vault_index.py` | Optional local vault inventory |
-| `docs/integrations.md` | Integration plan |
-
-## Next up
-
-1. **Restore receipts:** record a Forgejo isolated boot and test clone as separate checks.
-2. **Forgejo drift:** review the Mint backup script diff and classify it.
-3. **ntfy sender:** send once when a gap opens, once when it clears.
-4. **DNS and Nginx Proxy Manager:** separate DNS failure, proxy failure and stopped guest.
-5. **n8n inbox:** pull selected workflow findings into the briefing.

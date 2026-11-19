@@ -1,4 +1,4 @@
-/** Demo topology. This module is hand-written and does not read the vault. */
+/** Lab Ops rules. This module is hand-written and does not read the vault or any host. */
 export type Host = "Pi 5" | "Mint" | "Proxmox";
 export type Outcome = "passed" | "failed";
 export type State = "current" | "stale" | "failed" | "unknown";
@@ -181,4 +181,27 @@ export function nextcloudBackupCoverage(briefing: ReturnType<typeof buildBriefin
   }
   if (inputs.every((input) => input?.state === "current")) return "current";
   return "unknown";
+}
+
+export type Readiness = "verified" | "gap" | "unverified";
+
+/** The restic chain is verified only when the job ran, a new snapshot exists and the repository check passed. */
+export const resticChain = ["pi5-restic-job", "pi5-backup", "mint-check"] as const;
+
+export function resticReadiness(briefing: ReturnType<typeof buildBriefing>): Readiness {
+  const inputs = resticChain.map((id) => briefing.find((finding) => finding.id === id));
+  if (inputs.some((input) => input?.state === "failed" || input?.state === "stale")) return "gap";
+  if (inputs.every((input) => input?.state === "current")) return "verified";
+  return "unverified";
+}
+
+const severity = { failed: 0, stale: 1, unknown: 2, current: 3 } as const;
+
+/** Checks that need a person, worst first. Restic chain checks lead within each state. */
+export function needsAttention(briefing: ReturnType<typeof buildBriefing>) {
+  const chain = new Set<string>(resticChain);
+  return briefing
+    .filter((row) => row.state !== "current")
+    .sort((a, b) => severity[a.state] - severity[b.state] ||
+      Number(chain.has(b.id)) - Number(chain.has(a.id)));
 }

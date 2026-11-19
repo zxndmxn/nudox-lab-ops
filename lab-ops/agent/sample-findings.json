@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-11-19T12:02:00Z",
+  "agent": "Codex",
+  "sandbox": "disposable copy",
+  "nudox": false,
+  "summary": "Backups are not verified. The Pi 5 restic job reports success, but the newest snapshot is 11 days old, so the last 10 nightly runs may not have saved anything.",
+  "findings": [
+    {
+      "title": "Restic job succeeds without producing a snapshot",
+      "severity": "high",
+      "checkIds": [
+        "pi5-restic-job",
+        "pi5-backup"
+      ],
+      "whatHappened": "The job result is current (2026-11-18) but the newest snapshot is from 2026-11-08. A run that exits cleanly without writing a snapshot usually means the job is backing up an empty or wrong path, or the repository password file changed.",
+      "evidence": [
+        "briefing.md:5 shows pi5-backup stale, last observed 2026-11-08T12:00:00Z",
+        "briefing.md:12 shows pi5-restic-job current, last observed 2026-11-18T12:00:00Z",
+        "rules/briefing.ts:193 resticReadiness treats a stale snapshot as a gap even when the job passed"
+      ],
+      "nextStep": "On the Pi 5, run restic snapshots --latest 3 and read the last job log for the path it backed up.",
+      "confidence": "confirmed"
+    },
+    {
+      "title": "Deployed backup pull script differs from Forgejo",
+      "severity": "medium",
+      "checkIds": [
+        "mint-forgejo-script"
+      ],
+      "whatHappened": "The script Mint runs is not the one in the homelab-backups checkout. The service and timer still match, so the schedule is unchanged but the script's behaviour may be.",
+      "evidence": [
+        "receipts/mint-forgejo-drift.txt:3 mint-forgejo-script failed",
+        "receipts/mint-forgejo-drift.txt:4 mint-forgejo-service passed"
+      ],
+      "nextStep": "Review the diff before syncing either copy. Check retention and archive targets first.",
+      "confidence": "confirmed"
+    },
+    {
+      "title": "No restore drill on record",
+      "severity": "low",
+      "checkIds": [
+        "forgejo-restore-clone"
+      ],
+      "whatHappened": "Forgejo booted and served HTTP in an isolated restore on 2026-10-15, but nobody cloned a repo from it, so a working restore is not proven.",
+      "evidence": [
+        "briefing.md:20 forgejo-restore-clone has no observation"
+      ],
+      "nextStep": "During the next drill, clone a disposable repo from the restored guest and record it.",
+      "confidence": "likely"
+    }
+  ],
+  "trace": [
+    {
+      "kind": "ran",
+      "text": "Get-Content briefing.md"
+    },
+    {
+      "kind": "ran",
+      "text": "Get-Content receipts/mint-forgejo-drift.txt"
+    },
+    {
+      "kind": "ran",
+      "text": "Select-String -Path rules/briefing.ts -Pattern 'stale'"
+    }
+  ]
+}

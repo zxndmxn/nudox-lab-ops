@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "findings"],
+  "properties": {
+    "summary": { "type": "string", "description": "Two sentences at most. Lead with whether backups are recoverable." },
+    "findings": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "severity", "checkIds", "whatHappened", "evidence", "nextStep", "confidence"],
+        "properties": {
+          "title": { "type": "string" },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "checkIds": { "type": "array", "items": { "type": "string" } },
+          "whatHappened": { "type": "string" },
+          "evidence": { "type": "array", "maxItems": 4, "items": { "type": "string" } },
+          "nextStep": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["confirmed", "likely", "unverified"] }
+        }
+      }
+    }
+  }
+}

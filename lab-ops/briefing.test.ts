@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildBriefing, nextcloudBackupCoverage } from "./briefing.ts";
+import { buildBriefing, needsAttention, nextcloudBackupCoverage, resticReadiness } from "./briefing.ts";
 import { parseEvidence } from "./evidence.ts";
 import { compareBriefings, previewCoverageAlert } from "./changes.ts";
 
@@ -57,13 +57,31 @@ test("a working resolver and running guest can coexist with a failed proxy route
   }
 });
 
-test("notification previews follow coverage transitions and ignore steady state", () => {
-  const good = buildBriefing({ "nextcloud-guest": fresh, "nextcloud-files": fresh }, now);
-  const gap = buildBriefing({ "nextcloud-guest": fresh, "nextcloud-files": stale }, now);
+test("a successful restic job does not verify backups without a new snapshot", () => {
+  const chain = { "pi5-restic-job": fresh, "mint-check": fresh };
+  assert.equal(resticReadiness(buildBriefing({ ...chain, "pi5-backup": stale }, now)), "gap");
+  assert.equal(resticReadiness(buildBriefing(chain, now)), "unverified");
+  assert.equal(resticReadiness(buildBriefing({ ...chain, "pi5-backup": fresh }, now)), "verified");
+});
+
+test("attention list puts failures first and restic chain checks ahead of others", () => {
+  const rows = needsAttention(buildBriefing({
+    "pi5-restic-job": fresh, "mint-check": fresh, "pi5-backup": stale,
+    "nextcloud-files": stale,
+    "mint-forgejo-script": { ...fresh, outcome: "failed" },
+  }, now));
+  assert.deepEqual(rows.slice(0, 3).map(({ id }) => id), ["mint-forgejo-script", "pi5-backup", "nextcloud-files"]);
+  assert.ok(rows.every(({ state }) => state !== "current"));
+});
+
+test("notification previews follow restic readiness transitions and ignore steady state", () => {
+  const chain = { "pi5-restic-job": fresh, "mint-check": fresh };
+  const good = buildBriefing({ ...chain, "pi5-backup": fresh }, now);
+  const gap = buildBriefing({ ...chain, "pi5-backup": stale }, now);
   assert.deepEqual(compareBriefings(good, gap).map(({ id, before, after }) =>
-    [id, before, after]), [["nextcloud-files", "current", "stale"]]);
-  assert.match(previewCoverageAlert(good, gap)?.title ?? "", /gap/);
+    [id, before, after]), [["pi5-backup", "current", "stale"]]);
+  assert.match(previewCoverageAlert(good, gap)?.title ?? "", /need attention/);
   assert.equal(previewCoverageAlert(gap, gap), null);
-  assert.match(previewCoverageAlert(gap, good)?.title ?? "", /restored/);
+  assert.match(previewCoverageAlert(gap, good)?.title ?? "", /verified again/);
   assert.equal(previewCoverageAlert(gap, buildBriefing({}, now)), null);
 });

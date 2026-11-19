@@ -1,4 +1,4 @@
-import { buildBriefing, nextcloudBackupCoverage } from "./briefing.ts";
+import { buildBriefing, needsAttention, nextcloudBackupCoverage, resticReadiness } from "./briefing.ts";
 import { loadLocalEvidence } from "./evidence.ts";
 import { demoDate, demoEvidence } from "./sample.ts";
 const [flag, evidencePath, ...extra] = process.argv.slice(2);
@@ -11,7 +11,7 @@ const briefing = buildBriefing(
 );
 
 const lines = [
-  "# Nudox Lab Ops",
+  "# Lab Ops",
   "",
   evidencePath
     ? "Maintenance briefing · Local evidence evaluated against demo thresholds"
@@ -19,9 +19,9 @@ const lines = [
   "",
   "## What needs attention",
   "",
-  `Nextcloud backup coverage: **${nextcloudBackupCoverage(briefing)}**.`,
-  ...briefing
-    .filter((row) => row.state !== "current")
+  `Restic backups: **${resticReadiness(briefing)}**. Nextcloud archive coverage: ${nextcloudBackupCoverage(briefing)}.`,
+  "",
+  ...needsAttention(briefing)
     .map((row) => `- **${row.label}** · ${row.state}. ${row.nextCheck}`),
   "",
   "## Backup paths",
@@ -45,10 +45,8 @@ const lines = [
   "",
   "## Nudox code trace",
   "",
-  nextcloudBackupCoverage(briefing) === "gap"
-    ? "Look up `nextcloudBackupCoverage` to inspect how the two archive checks produce the gap."
-    : "Look up `nextcloudBackupCoverage` to inspect how the two archive checks decide coverage.",
-  "Look up `assessObservation` to inspect the freshness rule, then find its caller `buildBriefing`.",
+  "Look up `resticReadiness` to see why a passing job alone never verifies backups.",
+  "Look up `assessObservation` for the freshness rule, then its caller `buildBriefing`.",
   "",
 ];
 console.log(lines.join("\n"));

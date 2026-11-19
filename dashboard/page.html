@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>Homelab Operations · Nudox Lab Ops</title>
+  <title>Lab Ops</title>
   <style>
     :root {
       color-scheme: dark;
@@ -81,7 +81,7 @@
     .trace { padding-top: 13px; border-top: 1px solid var(--line); margin-top: 10px; }
     code { color: var(--accent); overflow-wrap: anywhere; }
     kbd { color: var(--text); }
-    .lower { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(290px, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+    .lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; margin-top: 16px; align-items: start; }
     .changes li { border-bottom: 1px solid var(--line); }
     .changes li:last-child { border-bottom: 0; }
     .link { color: var(--text); border: 0; padding: 9px 0; text-align: left; background: transparent; width: 100%; display: flex; justify-content: space-between; gap: 12px; }
@@ -93,7 +93,24 @@
     .integration-list div { display: grid; grid-template-columns: 62px 1fr; gap: 8px; }
     .integration-list dt { font-weight: 650; }
     .integration-list dd { margin: 0; }
-    @media (max-width: 1060px) { .layout, .lower { grid-template-columns: 1fr; } }
+    .verdict { display: grid; grid-template-columns: minmax(180px, .5fr) 2fr; gap: 18px; align-items: center; margin-top: 18px; padding: 16px 22px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); }
+    .verdict.gap { border-color: var(--stale); }
+    .verdict.verified { border-color: var(--current); }
+    .verdict-state { font-size: 1.7rem; font-weight: 680; letter-spacing: -.03em; }
+    .attention { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+    .attention button { font: inherit; color: var(--text); background: transparent; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
+    .attention button:hover { color: var(--accent); }
+    .attention .tag { flex-shrink: 0; min-width: 118px; font-size: .8rem; }
+    .agent-findings { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 12px; }
+    .agent-findings > li { border-left: 3px solid var(--line); padding-left: 12px; }
+    .agent-findings > li.high { border-color: var(--failed); }
+    .agent-findings > li.medium { border-color: var(--stale); }
+    .agent-findings h3 { font-size: .95rem; }
+    .agent-findings ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: .82rem; }
+    .agent-findings .next { margin-top: 6px; font-size: .88rem; }
+    .agent-trace { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+    .agent-trace code { color: var(--muted); }
+    @media (max-width: 1060px) { .layout, .lower, .verdict { grid-template-columns: 1fr; } }
     @media (max-width: 600px) {
       .hosts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .host:first-of-type, .backup-flow { grid-column: 1 / -1; }
@@ -111,7 +128,7 @@
 <main>
   <header>
     <div>
-      <h1>Homelab Operations</h1>
+      <h1>Lab Ops</h1>
       <p class="mode" id="data-mode"></p>
     </div>
     <div>
@@ -119,6 +136,13 @@
       <div class="controls" id="scenarios" role="group" aria-label="Demo scenario" hidden></div>
     </div>
   </header>
+  <section class="verdict" aria-live="polite">
+    <div>
+      <p class="small">Restic backups</p>
+      <p class="verdict-state" id="verdict-state"></p>
+    </div>
+    <ol class="attention" id="attention"></ol>
+  </section>
   <div class="layout">
     <section class="panel board" aria-labelledby="map-title">
       <div class="section-head">
@@ -139,9 +163,9 @@
       <ol id="checks"></ol>
       <div class="trace">
         <h3>Code behind this finding</h3>
-        <p class="small">Nudox indexes the rules and their references.</p>
+        <p class="small">Nudox indexes the Lab Ops rules so you can jump to the code behind any state.</p>
         <details>
-          <summary>Open in Lindsey</summary>
+          <summary>Look it up in Nudox</summary>
           <p class="small">In Lindsey, press <kbd>Ctrl</kbd>+<kbd>K</kbd> and search <code id="trace-symbol"></code>.</p>
           <p class="small" id="trace-detail"></p>
         </details>
@@ -161,15 +185,17 @@
         <p class="small" id="alert-message"></p>
       </details>
     </section>
-    <section class="panel" aria-labelledby="integration-title">
-      <h2 id="integration-title">Integrations</h2>
-      <dl class="integration-list small">
-        <div><dt>Forgejo</dt><dd>Checkout drift and isolated restore checks.</dd></div>
-        <div><dt>Restic</dt><dd>Job result, snapshot and repository checks.</dd></div>
-        <div><dt>DNS</dt><dd>Resolver and proxy receipts. Live probes pending.</dd></div>
-        <div><dt>ntfy</dt><dd>Previews are local. Sending needs a private topic.</dd></div>
-        <div><dt>n8n</dt><dd>Planned import of failed workflow runs.</dd></div>
-      </dl>
+    <section class="panel agent" aria-labelledby="agent-title">
+      <div class="section-head">
+        <h2 id="agent-title">Agent investigation</h2>
+        <p class="small" id="agent-meta"></p>
+      </div>
+      <p id="agent-summary"></p>
+      <ol class="agent-findings" id="agent-findings"></ol>
+      <details id="agent-trace-box">
+        <summary>What the agent looked at</summary>
+        <ol class="agent-trace small" id="agent-trace"></ol>
+      </details>
     </section>
   </div>
 </main>
@@ -302,6 +328,47 @@
       }
     }
 
+    const scenario = view.scenarios[selectedScenario];
+    const verdict = { verified: "Verified", gap: "Gap", unverified: "Not verified yet" }[scenario.readiness];
+    byId("verdict-state").textContent = verdict;
+    byId("verdict-state").className = "verdict-state " + ({ verified: "current", gap: "stale", unverified: "unknown" }[scenario.readiness]);
+    document.querySelector(".verdict").className = "verdict " + scenario.readiness;
+    const top = scenario.attention.slice(0, 4);
+    byId("attention").replaceChildren(...(top.length ? top.map((id) => {
+      const row = byCheck.get(id);
+      const item = element("li");
+      const jump = element("button");
+      jump.type = "button";
+      jump.append(element("span", "tag " + row.state, stateLabel(row.state, id)), element("span", "", row.label + " · " + row.host));
+      jump.onclick = () => { selectedNode = nodeFor(id); render(); byId("findings").focus(); };
+      item.append(jump);
+      return item;
+    }) : [element("li", "small", "Nothing needs attention.")]));
+    if (scenario.attention.length > top.length) byId("attention").append(element("li", "small", "+ " + (scenario.attention.length - top.length) + " more need verification"));
+
+    const agent = selectedView === "demo" && selectedScenario > 0 ? null : view.agent;
+    byId("agent-meta").textContent = agent ? "Codex · " + stamp(agent.generatedAt) + (selectedView === "demo" ? " · sample run" : "") : "";
+    byId("agent-summary").textContent = agent ? agent.summary : selectedView === "demo" ? "Restic is verified in this scenario. Run the agent again after a change for fresh findings." : "No investigation yet. Run the agent to have Codex read the receipts and explain what to do.";
+    byId("agent-findings").replaceChildren(...(agent?.findings ?? []).map((finding) => {
+      const item = element("li", finding.severity);
+      item.append(element("h3", "", finding.title));
+      item.append(element("p", "small " + (finding.confidence === "confirmed" ? "current" : "unknown"), finding.severity + " · " + finding.confidence));
+      item.append(element("p", "small", finding.whatHappened));
+      if (finding.evidence.length) {
+        const list = element("ul");
+        list.append(...finding.evidence.map((line) => element("li", "", line)));
+        item.append(list);
+      }
+      item.append(element("p", "next", "Next: " + finding.nextStep));
+      return item;
+    }));
+    byId("agent-trace-box").hidden = !agent?.trace?.length;
+    byId("agent-trace").replaceChildren(...(agent?.trace ?? []).map((step) => {
+      const item = element("li");
+      item.append(element("span", "", step.kind === "ran" ? "Ran " : step.kind === "nudox" ? "Nudox lookup " : "Noted "), element("code", "", step.text));
+      return item;
+    }));
+
     byId("selection").textContent = selectedNode.name;
     const coverageLabel = coverage === "unknown" ? "still needs verification" : "is " + coverage;
     byId("selection-detail").textContent = selectedNode.detail +
@@ -354,7 +421,7 @@
     scenarios.hidden = view !== "demo";
     scenarios.replaceChildren();
     if (view === "demo") {
-      const labels = ["Backup gap", "Backup recovered"];
+      const labels = ["Snapshot missing", "Snapshot verified"];
       data.demo.scenarios.forEach((scenario, index) => {
         control(scenarios, labels[index] ?? scenario.label, index === 0, () => { selectedScenario = index; });
       });

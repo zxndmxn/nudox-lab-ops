@@ -1,3 +1,4 @@
+/** Fictional demo story: the Pi 5 restic job reports success, but its newest snapshot is 11 days old. */
 import type { Observation } from "./briefing.ts";
 
 export const demoDate = new Date("2026-11-19T12:00:00Z");
@@ -7,15 +8,15 @@ export const demoEvidence: Readonly<Record<string, Observation>> = {
   "mint-forgejo-timer": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
   "pi5-restic-job": { observedAt: "2026-11-18T12:00:00Z", outcome: "passed" },
   "mint-prox-pull-job": { observedAt: "2026-11-18T12:00:00Z", outcome: "passed" },
-  "pi5-backup": { observedAt: "2026-11-18T12:00:00Z", outcome: "passed" },
+  "pi5-backup": { observedAt: "2026-11-08T12:00:00Z", outcome: "passed" },
   "mint-check": { observedAt: "2026-11-18T12:00:00Z", outcome: "passed" },
   "nextcloud-guest": { observedAt: "2026-11-18T12:00:00Z", outcome: "passed" },
-  "nextcloud-files": { observedAt: "2026-11-08T18:00:00Z", outcome: "passed" },
+  "nextcloud-files": { observedAt: "2026-11-18T12:30:00Z", outcome: "passed" },
   "forgejo-archive": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
   "forgejo-present": { observedAt: "2026-11-18T10:00:00Z", outcome: "passed" },
   "forgejo-guest": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
   "forgejo-dns": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
-  "forgejo-proxy-http": { observedAt: "2026-11-19T10:00:00Z", outcome: "failed" },
+  "forgejo-proxy-http": { observedAt: "2026-11-19T10:00:00Z", outcome: "passed" },
   "forgejo-boot": { observedAt: "2026-10-15T10:00:00Z", outcome: "passed" },
   "forgejo-restore-http": { observedAt: "2026-10-15T10:05:00Z", outcome: "passed" },
 };
