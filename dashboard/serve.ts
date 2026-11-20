@@ -45,7 +45,8 @@ function run(job: string, extra: string[]) {
   const child = spawn(process.execPath, [join(data, "refresh-live.mjs"), repo, ...extra], { windowsHide: true, env: process.env });
   child.stdout.on("data", push);
   child.stderr.on("data", push);
-  child.on("close", (code) => { ok = code === 0; log.push(ok ? "Done." : `Stopped (exit ${code}).`); running = null; keysCache.at = 0; });
+  // "exit", not "close": ssh helpers can keep the pipes open after the script has finished.
+  child.on("exit", (code) => { ok = code === 0; log.push(ok ? "Done." : `Stopped (exit ${code}).`); running = null; keysCache.at = 0; });
 }
 
 function send(res: ServerResponse, status: number, body: string | object, type = "application/json") {
