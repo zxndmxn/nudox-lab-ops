@@ -8,216 +8,259 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #111817;
-      --panel: #1a2523;
-      --node: #202e2a;
-      --raised: #2a4036;
-      --line: #374945;
-      --grid: #2c3b36;
-      --connector: #8caaa0;
-      --text: #f0f6f3;
-      --muted: #b7c8c3;
-      --accent: #a1e4af;
-      --current: var(--accent);
-      --stale: #f5ce88;
-      --failed: #ffaba6;
+      --bg: #0e1413;
+      --panel: #151e1c;
+      --chip: #1b2725;
+      --raised: #23352f;
+      --line: #2b3a37;
+      --text: #eef5f2;
+      --muted: #9fb3ad;
+      --accent: #8fe0a2;
+      --current: #8fe0a2;
+      --stale: #f2c879;
+      --failed: #ff9d97;
+      --unknown: #8a9b97;
+      --radius: 12px;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
-    main { max-width: 1420px; padding: 28px clamp(16px, 4vw, 58px) 44px; margin: auto; }
-    header, .section-head, .node-foot, .check-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-    header { padding: 8px 0 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-    h1, h2, h3, p { margin: 0; }
-    h1 { font-size: clamp(2.15rem, 5vw, 4rem); font-weight: 660; letter-spacing: -.06em; line-height: 1.06; margin: 0 0 9px; }
-    h2 { font-size: 1.12rem; letter-spacing: -.02em; }
-    h3 { font-size: .98rem; }
-    .mode, .small, .node-host, .lane small { color: var(--muted); font-size: .82rem; }
-    .controls, .legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .controls button, .link, .node { font: inherit; cursor: pointer; }
-    .controls button { color: var(--text); padding: 6px 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
-    .controls button[aria-pressed=true] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-    button:focus-visible, summary:focus-visible, .findings:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    html, body { height: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", sans-serif; }
+    h1, h2, h3, p, ol, ul { margin: 0; }
+    ol, ul { padding: 0; list-style: none; }
+    button { font: inherit; color: inherit; cursor: pointer; }
     [hidden] { display: none !important; }
-    .layout { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(290px, 1fr); align-items: start; gap: 16px; margin-top: 18px; }
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: clamp(14px, 2vw, 23px); min-width: 0; }
-    .board {
-      background-image: radial-gradient(var(--grid) 1px, transparent 1px);
-      background-size: 18px 18px;
+    button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .small { font-size: 12.5px; color: var(--muted); }
+    .current { color: var(--current); } .stale { color: var(--stale); } .failed { color: var(--failed); } .unknown { color: var(--unknown); }
+    .state { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    code { color: var(--accent); font: 12px/1.4 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+
+    .app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; height: 100vh; padding: 14px 18px; max-width: 1680px; margin: auto; }
+
+    /* Top bar */
+    .top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .brand h1 { font-size: 22px; font-weight: 720; letter-spacing: -.03em; }
+    .brand p { margin-top: 1px; }
+    .switches { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+    .seg .thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 999px; background: var(--accent); transition: transform .22s ease, width .22s ease; }
+    .seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 6px 16px; border-radius: 999px; font-weight: 620; white-space: nowrap; transition: color .2s; }
+    .seg button[aria-pressed=true] { color: #0b1a12; }
+    .seg.small-seg button { padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
+    .story { display: flex; align-items: center; gap: 8px; }
+    .story-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+    /* Verdict strip */
+    .strip { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+    .verdict { display: grid; gap: 8px; border-left: 4px solid var(--unknown); }
+    .verdict.gap { border-left-color: var(--stale); }
+    .verdict.verified { border-left-color: var(--current); }
+    .verdict-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .verdict-state { font-size: 24px; font-weight: 720; letter-spacing: -.03em; line-height: 1.1; }
+    .chain { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 6px; }
+    .chain .step { display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); }
+    .chain .step b { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .chain .step span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+    .chain .arrow { color: var(--muted); font-size: 12px; }
+    .attention-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; align-content: start; }
+    .attention-card h2 { grid-column: 1 / -1; }
+    .attention { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; }
+    .attention button { width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 4px 0; text-align: left; border-radius: 6px; }
+    .attention button:hover .what { color: var(--accent); }
+    .attention .tag { flex-shrink: 0; width: 108px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+    .attention .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attention .host { color: var(--muted); }
+    h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+
+    /* Main grid */
+    .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) minmax(0, 1.2fr); gap: 12px; min-height: 0; }
+    .col { display: grid; gap: 12px; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    .col.split { grid-template-rows: minmax(0, 1.2fr) minmax(0, .8fr); }
+    .panel { display: flex; flex-direction: column; min-height: 0; }
+    .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .scroll { overflow: auto; min-height: 0; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+    /* Map */
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .lanes { display: grid; gap: 12px; }
+    .lane-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+    .lane-title h3 { font-size: 13.5px; font-weight: 650; }
+    .lane-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .lane.route .node:not(:first-child)::before { content: "→"; position: absolute; left: -9px; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 12px; }
+    .node { position: relative; display: grid; gap: 2px; text-align: left; padding: 9px 10px; border-radius: 10px; background: var(--chip); border: 1px solid var(--line); transition: background .15s, border-color .15s; }
+    .node:hover { background: var(--raised); }
+    .node[aria-pressed=true] { border-color: var(--accent); background: var(--raised); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .node-name { font-weight: 640; font-size: 13.5px; }
+    .node-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+    .flow { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); text-align: center; }
+
+    /* Selected */
+    .checks li { padding: 8px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+    .checks li:last-child { border-bottom: 0; }
+    .check-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .check-head strong { font-size: 13px; font-weight: 620; }
+    .check-head span { flex-shrink: 0; font-size: 12px; }
+    .nudox { margin-top: 10px; padding: 8px 10px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); }
+
+    /* Changes */
+    .changes li button { width: 100%; display: flex; justify-content: space-between; gap: 10px; border: 0; background: transparent; padding: 7px 0; border-bottom: 1px solid var(--line); text-align: left; }
+    .changes li:last-child button { border-bottom: 0; }
+    .changes li button:hover > span:first-child { color: var(--accent); }
+    .changes .delta { flex-shrink: 0; font-size: 12px; }
+    .alert { margin-top: 10px; padding: 8px 10px; border-radius: 9px; border: 1px dashed var(--line); }
+    .alert strong { font-size: 13px; }
+
+    /* Agent */
+    .agent-summary { font-size: 14px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; background: var(--chip); border: 1px solid var(--line); margin-bottom: 10px; }
+    .finding { border: 1px solid var(--line); border-left: 4px solid var(--unknown); border-radius: 10px; background: var(--bg); margin-bottom: 8px; }
+    .finding.high { border-left-color: var(--failed); }
+    .finding.medium { border-left-color: var(--stale); }
+    .finding summary { list-style: none; padding: 9px 12px; display: grid; gap: 2px; cursor: pointer; }
+    .finding summary::-webkit-details-marker { display: none; }
+    .finding summary strong { font-size: 13.5px; font-weight: 640; }
+    .finding .meta { display: flex; gap: 8px; font-size: 12px; color: var(--muted); }
+    .finding .body { padding: 0 12px 10px; display: grid; gap: 6px; }
+    .finding ul { padding-left: 16px; list-style: disc; color: var(--muted); font-size: 12.5px; }
+    .finding .next { font-size: 13px; }
+    .finding .next b { color: var(--accent); font-weight: 650; }
+    .trace { margin-top: 4px; }
+    .trace summary { cursor: pointer; color: var(--accent); font-size: 13px; padding: 4px 0; }
+    .trace ol { display: grid; gap: 4px; margin-top: 6px; }
+    .trace li { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; }
+    .trace .kind { flex-shrink: 0; width: 64px; color: var(--muted); }
+    .trace .kind.nudox { color: var(--accent); }
+
+    @media (max-width: 1180px) {
+      .app { height: auto; }
+      .grid { grid-template-columns: 1fr 1fr; }
+      .grid > .col:last-child { grid-column: 1 / -1; }
+      .scroll { overflow: visible; }
     }
-    .board .section-head { flex-wrap: wrap; margin-bottom: 19px; }
-    .legend { gap: 12px; }
-    .legend span { white-space: nowrap; }
-    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 5px; vertical-align: 1px; }
-    .lanes { display: grid; gap: 11px; }
-    .lane { display: grid; grid-template-columns: minmax(94px, .7fr) repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 22px; }
-    .lane header { display: block; padding: 7px 0 0; border: 0; }
-    .lane small { display: block; margin-top: 3px; }
-    .hosts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-    .host { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 11px; display: grid; align-content: start; gap: 7px; }
-    .host h3 { font-size: 1.08rem; }
-    .host .node { width: 100%; }
-    .backup-flow { grid-column: 2 / 4; color: var(--accent); text-align: center; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-    .supporting-route { grid-column: 1 / -1; margin-top: 1px; }
-    .supporting-route .lane { margin-top: 10px; }
-    .node { position: relative; background: var(--node); border: 1px solid var(--line); border-radius: 9px; color: var(--text); padding: 10px; text-align: left; min-width: 0; display: grid; align-content: space-between; gap: 5px; }
-    .route .node + .node::before { content: ""; position: absolute; width: 14px; border-top: 1px solid var(--connector); right: calc(100% + 4px); top: 50%; }
-    .route .node + .node::after { content: ""; position: absolute; width: 5px; height: 5px; border-top: 1px solid var(--connector); border-right: 1px solid var(--connector); right: calc(100% + 5px); top: calc(50% - 2px); transform: rotate(45deg); }
-    .node:hover, .node[aria-pressed=true] { background: var(--raised); border-color: var(--accent); }
-    .node-name { font-weight: 670; }
-    .node-foot { flex-wrap: wrap; justify-content: flex-start; gap: 6px; font-size: .77rem; }
-    .current { color: var(--current); }
-    .stale, .gap { color: var(--stale); }
-    .failed { color: var(--failed); }
-    .unknown { color: var(--muted); }
-    .intro, .trace p { color: var(--muted); margin-top: 5px; }
-    .findings { scroll-margin-top: 12px; }
-    .findings ol, .changes { padding: 0; margin: 0; list-style: none; }
-    .findings li { padding: 10px 0; border-bottom: 1px solid var(--line); }
-    .findings li:last-child { border-bottom: 0; }
-    .check-head { align-items: baseline; padding-bottom: 3px; }
-    .check-head strong { font-size: .88rem; }
-    .check-head span { flex-shrink: 0; }
-    .pending .check-head span { border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
-    .trace { padding-top: 13px; border-top: 1px solid var(--line); margin-top: 10px; }
-    code { color: var(--accent); overflow-wrap: anywhere; }
-    kbd { color: var(--text); }
-    .lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; margin-top: 16px; align-items: start; }
-    .changes li { border-bottom: 1px solid var(--line); }
-    .changes li:last-child { border-bottom: 0; }
-    .link { color: var(--text); border: 0; padding: 9px 0; text-align: left; background: transparent; width: 100%; display: flex; justify-content: space-between; gap: 12px; }
-    .link:hover { color: var(--accent); }
-    summary { cursor: pointer; color: var(--accent); }
-    details { margin-top: 12px; }
-    #scenarios { margin-top: 10px; }
-    .integration-list { display: grid; gap: 10px; margin: 10px 0 0; }
-    .integration-list div { display: grid; grid-template-columns: 62px 1fr; gap: 8px; }
-    .integration-list dt { font-weight: 650; }
-    .integration-list dd { margin: 0; }
-    .verdict { display: grid; grid-template-columns: minmax(180px, .5fr) 2fr; gap: 18px; align-items: center; margin-top: 18px; padding: 16px 22px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); }
-    .verdict.gap { border-color: var(--stale); }
-    .verdict.verified { border-color: var(--current); }
-    .verdict-state { font-size: 1.7rem; font-weight: 680; letter-spacing: -.03em; }
-    .attention { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
-    .attention button { font: inherit; color: var(--text); background: transparent; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
-    .attention button:hover { color: var(--accent); }
-    .attention .tag { flex-shrink: 0; min-width: 118px; font-size: .8rem; }
-    .agent-findings { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 12px; }
-    .agent-findings > li { border-left: 3px solid var(--line); padding-left: 12px; }
-    .agent-findings > li.high { border-color: var(--failed); }
-    .agent-findings > li.medium { border-color: var(--stale); }
-    .agent-findings h3 { font-size: .95rem; }
-    .agent-findings ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: .82rem; }
-    .agent-findings .next { margin-top: 6px; font-size: .88rem; }
-    .agent-trace { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
-    .agent-trace code { color: var(--muted); }
-    @media (max-width: 1060px) { .layout, .lower, .verdict { grid-template-columns: 1fr; } }
-    @media (max-width: 600px) {
-      .hosts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .host:first-of-type, .backup-flow { grid-column: 1 / -1; }
-      .lane { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 13px; }
-      .lane header { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px; }
-      .lane small { margin: 0; }
-      .node { padding: 7px; }
-      .node-name { font-size: .82rem; }
-      .route .node + .node::before { width: 8px; right: calc(100% + 2px); }
-      .route .node + .node::after { right: calc(100% + 3px); }
+    @media (max-width: 760px) {
+      .strip, .grid { grid-template-columns: 1fr; }
+      .attention { grid-template-columns: 1fr; }
+      .switches { margin-left: 0; }
     }
   </style>
 </head>
 <body>
-<main>
-  <header>
-    <div>
+<div class="app">
+  <header class="top">
+    <div class="brand">
       <h1>Lab Ops</h1>
-      <p class="mode" id="data-mode"></p>
+      <p class="small" id="data-mode"></p>
     </div>
-    <div>
-      <div class="controls" id="views" role="group" aria-label="Dashboard view" hidden></div>
-      <div class="controls" id="scenarios" role="group" aria-label="Demo scenario" hidden></div>
+    <div class="switches">
+      <div class="story" id="story" hidden>
+        <span class="story-label">Demo story</span>
+        <div class="seg small-seg" id="scenarios" role="group" aria-label="Demo story"><span class="thumb"></span></div>
+      </div>
+      <div class="seg" id="views" role="group" aria-label="Dashboard view" hidden><span class="thumb"></span></div>
     </div>
   </header>
-  <section class="verdict" aria-live="polite">
-    <div>
-      <p class="small">Restic backups</p>
+
+  <section class="strip">
+    <div class="card verdict" id="verdict" aria-live="polite">
+      <div class="verdict-head">
+        <h2>Restic backups</h2>
+        <span class="small" id="verdict-count"></span>
+      </div>
       <p class="verdict-state" id="verdict-state"></p>
+      <div class="chain" id="chain"></div>
     </div>
-    <ol class="attention" id="attention"></ol>
+    <div class="card attention-card">
+      <h2>Needs attention</h2>
+      <ol class="attention" id="attention"></ol>
+    </div>
   </section>
-  <div class="layout">
-    <section class="panel board" aria-labelledby="map-title">
-      <div class="section-head">
-        <h2 id="map-title">Lab map</h2>
-        <div class="legend small" aria-label="Map status legend">
-          <span class="current"><i class="dot"></i>Current</span>
-          <span class="stale"><i class="dot"></i>Stale</span>
-          <span class="failed"><i class="dot"></i>Failed or drift</span>
-          <span class="unknown"><i class="dot"></i><span id="pending-label">Needs verification</span></span>
+
+  <section class="grid">
+    <div class="col">
+      <section class="card panel" aria-labelledby="map-title">
+        <div class="panel-head">
+          <h2 id="map-title">Lab map</h2>
+          <div class="legend small">
+            <span class="current"><i class="dot"></i>Current</span>
+            <span class="stale"><i class="dot"></i>Stale</span>
+            <span class="failed"><i class="dot"></i>Failed</span>
+            <span class="unknown"><i class="dot"></i>Unverified</span>
+          </div>
         </div>
-      </div>
-      <div class="lanes" id="map"></div>
-      <div class="hosts" id="hosts" hidden></div>
-    </section>
-    <section class="panel findings" id="findings" aria-labelledby="selection" tabindex="-1">
-      <h2 id="selection" aria-live="polite"></h2>
-      <p class="intro small" id="selection-detail"></p>
-      <ol id="checks"></ol>
-      <div class="trace">
-        <h3>Code behind this finding</h3>
-        <p class="small">Nudox indexes the Lab Ops rules so you can jump to the code behind any state.</p>
-        <details>
-          <summary>Look it up in Nudox</summary>
-          <p class="small">In Lindsey, press <kbd>Ctrl</kbd>+<kbd>K</kbd> and search <code id="trace-symbol"></code>.</p>
-          <p class="small" id="trace-detail"></p>
-        </details>
-      </div>
-    </section>
-  </div>
-  <div class="lower">
-    <section class="panel" aria-labelledby="changes-title">
-      <div class="section-head">
-        <h2 id="changes-title">What changed</h2>
-        <p class="small" id="comparison"></p>
-      </div>
-      <ul class="changes" id="changes"></ul>
-      <details id="alert-preview" hidden>
-        <summary>ntfy preview</summary>
-        <p id="alert-title"></p>
-        <p class="small" id="alert-message"></p>
-      </details>
-    </section>
-    <section class="panel agent" aria-labelledby="agent-title">
-      <div class="section-head">
-        <h2 id="agent-title">Agent investigation</h2>
-        <p class="small" id="agent-meta"></p>
-      </div>
-      <p id="agent-summary"></p>
-      <ol class="agent-findings" id="agent-findings"></ol>
-      <details id="agent-trace-box">
-        <summary>What the agent looked at</summary>
-        <ol class="agent-trace small" id="agent-trace"></ol>
-      </details>
-    </section>
-  </div>
-</main>
+        <div class="scroll">
+          <div class="lanes" id="map"></div>
+          <p class="flow small">Pi 5 restic snapshots → Mint backup storage ← Proxmox guest archives</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="col split">
+      <section class="card panel" id="findings" tabindex="-1" aria-labelledby="selection">
+        <div class="panel-head">
+          <h2 id="selection" aria-live="polite"></h2>
+          <span class="small" id="selection-host"></span>
+        </div>
+        <div class="scroll">
+          <p class="small" id="selection-detail"></p>
+          <ol class="checks" id="checks"></ol>
+          <p class="nudox small">Code behind this: in Nudox, search <code id="trace-symbol"></code>. <span id="trace-detail"></span></p>
+        </div>
+      </section>
+      <section class="card panel" aria-labelledby="changes-title">
+        <div class="panel-head">
+          <h2 id="changes-title">What changed</h2>
+          <span class="small" id="comparison"></span>
+        </div>
+        <div class="scroll">
+          <ul class="changes" id="changes"></ul>
+          <div class="alert" id="alert-preview" hidden>
+            <p class="small">ntfy preview · not sent</p>
+            <strong id="alert-title"></strong>
+            <p class="small" id="alert-message"></p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card panel" aria-labelledby="agent-title">
+        <div class="panel-head">
+          <h2 id="agent-title">Agent investigation</h2>
+          <span class="small" id="agent-meta"></span>
+        </div>
+        <div class="scroll">
+          <p class="agent-summary" id="agent-summary"></p>
+          <div id="agent-findings"></div>
+          <details class="trace" id="agent-trace-box">
+            <summary>What the agent looked at</summary>
+            <ol id="agent-trace"></ol>
+          </details>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
 <script id="briefing-data" type="application/json">__BRIEFING_DATA__</script>
 <script>
   const data = JSON.parse(document.getElementById("briefing-data").textContent);
   const byId = (id) => document.getElementById(id);
   const stamp = (value) => value ? value.slice(0, 16).replace("T", " ") + " UTC" : "No evidence";
   const priority = { failed: 0, stale: 1, unknown: 2, current: 3 };
-  const freshness = ["assessObservation", "Open References and follow buildBriefing to see how the rule is applied to each check."];
-  const comparison = ["compareBriefings", "The Mint collector compares the files. Open Source to see how Lab Ops reports changes between snapshots."];
+  const freshness = ["assessObservation", "Follow References to buildBriefing."];
+  const comparison = ["compareBriefings", "Shows how changes between snapshots are reported."];
   const lanes = [
-    { title: "Backups", detail: "Jobs and recovery", nodes: [
-      { name: "Restic", host: "Pi 5", ids: ["pi5-restic-job", "pi5-backup"], trace: freshness,
+    { title: "Backups", detail: "jobs and recovery", nodes: [
+      { name: "Restic", host: "Pi 5", ids: ["pi5-restic-job", "pi5-backup"], trace: ["resticReadiness", "A passing job alone never verifies backups."],
         detail: "A completed job and a recent snapshot are separate evidence." },
-      { name: "Backup storage", host: "Mint", ids: ["mint-prox-pull-job", "mint-check"], trace: freshness,
-        detail: "Check the pull job and the backup repository independently." },
+      { name: "Backup storage", host: "Mint", ids: ["mint-prox-pull-job", "mint-check"], trace: ["resticReadiness", "The repository check is part of the restic chain."],
+        detail: "The pull job and the backup repository are checked independently." },
       { name: "Nextcloud recovery", host: "Proxmox", ids: ["nextcloud-guest", "nextcloud-files", "nextcloud-restore"],
-        trace: ["nextcloudBackupCoverage", "Open Source to see how both archive checks determine coverage."],
+        trace: ["nextcloudBackupCoverage", "Both archives decide coverage."],
         detail: "Recovery needs both archives and a separate restore drill." },
     ]},
-    { title: "Service access", detail: "Client to guest", route: true, nodes: [
+    { title: "Service access", detail: "client to guest", route: true, nodes: [
       { name: "DNS", host: "Lab client", ids: ["forgejo-dns"], trace: freshness,
         detail: "Can a client resolve Forgejo to the expected proxy address?" },
       { name: "Reverse proxy", host: "Nginx Proxy Manager", ids: ["forgejo-proxy-http"], trace: freshness,
@@ -225,217 +268,218 @@
       { name: "Forgejo guest", host: "Proxmox", ids: ["forgejo-guest"], trace: freshness,
         detail: "Guest state is checked independently of DNS and proxy routing." },
     ]},
-    { title: "Forgejo", detail: "Source to restore", nodes: [
+    { title: "Forgejo", detail: "source to restore", route: true, nodes: [
       { name: "Deploy drift", host: "Mint", ids: ["mint-forgejo-script", "mint-forgejo-service", "mint-forgejo-timer"], trace: comparison,
-        detail: "Compare what is deployed with the local Forgejo checkout." },
+        detail: "What Mint runs compared with the homelab-backups checkout in Forgejo." },
       { name: "Forgejo archive", host: "Proxmox", ids: ["forgejo-present", "forgejo-archive"], trace: freshness,
         detail: "Archive presence and integrity each have their own check." },
-      { name: "Forgejo restore drill", host: "Isolated guest", ids: ["forgejo-boot", "forgejo-restore-http", "forgejo-restore-clone"], trace: freshness,
-        detail: "Look for separate receipts for boot, HTTP health and a Git clone." },
+      { name: "Restore drill", host: "Isolated guest", ids: ["forgejo-boot", "forgejo-restore-http", "forgejo-restore-clone"], trace: freshness,
+        detail: "Separate receipts for boot, HTTP health and a Git clone." },
     ]},
   ];
+  const chainSteps = [["pi5-restic-job", "Job ran"], ["pi5-backup", "Snapshot"], ["mint-check", "Repo"]];
   const nodes = lanes.flatMap(({ nodes }) => nodes);
   const nodeFor = (id) => nodes.find(({ ids }) => ids.includes(id));
-  function stateLabel(state, id) {
-    if (state === "unknown") return "Needs verification";
-    if (state === "failed" && id?.startsWith("mint-forgejo-")) return "Drift";
-    return state[0].toUpperCase() + state.slice(1);
-  }
+  const stateLabel = (state, id) => state === "unknown" ? "Unverified"
+    : state === "failed" && id?.startsWith("mint-forgejo-") ? "Drift"
+    : state[0].toUpperCase() + state.slice(1);
+  const worst = (states) => states.reduce((a, b) => priority[b] < priority[a] ? b : a);
+
   let selectedView = data.live ? "live" : "demo";
   let selectedScenario = 0;
   let selectedNode = nodes.find((node) => node.name === "Deploy drift");
   const nodeButtons = new Map();
 
-  function element(tag, className, content) {
+  function el(tag, className, content) {
     const item = document.createElement(tag);
     if (className) item.className = className;
-    if (content) item.textContent = content;
+    if (content != null) item.textContent = content;
     return item;
   }
-
-  function control(group, label, pressed, action) {
-    const item = element("button", "", label);
-    item.type = "button";
-    item.setAttribute("aria-pressed", pressed);
-    item.onclick = () => {
-      for (const button of group.querySelectorAll("button")) button.setAttribute("aria-pressed", button === item);
-      action();
-      render();
-    };
-    group.append(item);
+  function status(state, label) {
+    const s = el("span", "state " + state);
+    s.append(el("i", "dot"), document.createTextNode(label));
+    return s;
   }
 
-  function laneElement(lane) {
-    const track = element("div", lane.route ? "lane route" : "lane");
-    const heading = element("header");
-    heading.append(element("h3", "", lane.title), element("small", "", lane.detail));
-    track.append(heading);
-    track.append(...lane.nodes.map(nodeButton));
-    return track;
-  }
-
-  function nodeButton(node) {
-    const button = element("button", "node");
-    button.type = "button";
-    button.setAttribute("aria-controls", "findings");
-    const status = element("span");
-    button.append(element("span", "node-name", node.name), element("span", "node-host", node.host), status);
-    button.onclick = () => { selectedNode = node; render(); };
-    if (!nodeButtons.has(node)) nodeButtons.set(node, []);
-    nodeButtons.get(node).push({ button, status });
-    return button;
-  }
-
-  function liveMap() {
-    const hostGrid = byId("hosts");
-    for (const [name, detail, checks] of [
-      ["Pi 5", "Restic backup job and snapshots", ["pi5-backup"]],
-      ["Mint", "Backup storage and deployed jobs", ["mint-check", "mint-forgejo-script"]],
-      ["Proxmox", "Guests and recovery", ["forgejo-guest", "forgejo-present", "forgejo-boot", "nextcloud-guest"]],
-    ]) {
-      const host = element("section", "host");
-      host.append(element("h3", "", name), element("p", "small", detail),
-        ...checks.map((id) => nodeButton(nodeFor(id))));
-      hostGrid.append(host);
+  // Segmented control with a sliding thumb.
+  function segmented(group, labels, active, onPick) {
+    group.querySelectorAll("button").forEach((b) => b.remove());
+    const thumb = group.querySelector(".thumb");
+    const buttons = labels.map((label, index) => {
+      const button = el("button", "", label);
+      button.type = "button";
+      button.onclick = () => { onPick(index); place(index); render(); };
+      group.append(button);
+      return button;
+    });
+    function place(index) {
+      buttons.forEach((b, i) => b.setAttribute("aria-pressed", i === index));
+      const b = buttons[index];
+      thumb.style.width = b.offsetWidth + "px";
+      thumb.style.transform = `translateX(${b.offsetLeft - 4}px)`;
     }
-    hostGrid.append(element("p", "backup-flow small", "Pi 5 restic snapshots → Mint backup storage ← Proxmox guest archives"));
-    const route = element("details", "supporting-route");
-    route.append(element("summary", "", "Forgejo access path"), laneElement(lanes[1]));
-    hostGrid.append(route);
+    requestAnimationFrame(() => place(active));
+    return place;
   }
 
-  byId("map").append(...lanes.map(laneElement));
-  if (data.live) liveMap();
+  function buildMap() {
+    byId("map").replaceChildren(...lanes.map((lane) => {
+      const wrap = el("div", lane.route ? "lane route" : "lane");
+      const title = el("div", "lane-title");
+      title.append(el("h3", "", lane.title), el("span", "small", lane.detail));
+      const row = el("div", "lane-row");
+      for (const node of lane.nodes) {
+        const button = el("button", "node");
+        button.type = "button";
+        const foot = el("span", "node-status");
+        button.append(el("span", "node-name", node.name), el("span", "small", node.host), foot);
+        button.onclick = () => { selectedNode = node; render(); };
+        nodeButtons.set(node, { button, foot });
+        row.append(button);
+      }
+      wrap.append(title, row);
+      return wrap;
+    }));
+  }
 
   function render() {
     const view = data[selectedView];
-    const { rows, coverage, changes, comparedAt, alert } = view.scenarios[selectedScenario];
+    const scenario = view.scenarios[selectedScenario];
+    const { rows, changes, comparedAt, alert } = scenario;
     const byCheck = new Map(rows.map((row) => [row.id, row]));
     const latest = rows.map(({ observedAt }) => observedAt)
-      .filter((time) => Date.parse(time) <= Date.parse(view.asOf)).sort().at(-1);
+      .filter((t) => t && Date.parse(t) <= Date.parse(view.asOf)).sort().at(-1);
     byId("data-mode").textContent = selectedView === "live"
-      ? "Local evidence · " + (latest ? "Latest observation " + stamp(latest) : "Awaiting first observation")
-      : "Demo data";
-    byId("pending-label").textContent = stateLabel("unknown");
-    for (const [node, buttons] of nodeButtons) {
-      const states = node.ids.map((id) => byCheck.get(id).state);
-      const state = states.reduce((worst, next) => priority[next] < priority[worst] ? next : worst);
-      const label = state === "failed" && node.name === "Deploy drift" ? "Drift" : stateLabel(state);
-      for (const { button, status } of buttons) {
-        status.className = "node-foot " + state;
-        status.replaceChildren(element("i", "dot"), label);
-        button.setAttribute("aria-pressed", node === selectedNode);
-      }
-    }
+      ? "Your lab · latest evidence " + (latest ? stamp(latest) : "none yet")
+      : "Demo · fictional sample data for walkthroughs";
 
-    const scenario = view.scenarios[selectedScenario];
+    // Verdict and restic chain.
     const verdict = { verified: "Verified", gap: "Gap", unverified: "Not verified yet" }[scenario.readiness];
+    byId("verdict").className = "card verdict " + scenario.readiness;
     byId("verdict-state").textContent = verdict;
     byId("verdict-state").className = "verdict-state " + ({ verified: "current", gap: "stale", unverified: "unknown" }[scenario.readiness]);
-    document.querySelector(".verdict").className = "verdict " + scenario.readiness;
-    const top = scenario.attention.slice(0, 4);
+    const counts = rows.reduce((c, r) => (c[r.state] = (c[r.state] ?? 0) + 1, c), {});
+    byId("verdict-count").textContent = `${counts.current ?? 0} of ${rows.length} checks current`;
+    byId("chain").replaceChildren(...chainSteps.flatMap(([id, label], i) => {
+      const state = byCheck.get(id)?.state ?? "unknown";
+      const step = el("div", "step");
+      step.append(el("b", "", label), status(state, stateLabel(state, id)));
+      return i ? [el("span", "arrow", "→"), step] : [step];
+    }));
+
+    // Attention list.
+    const top = scenario.attention.slice(0, 6);
     byId("attention").replaceChildren(...(top.length ? top.map((id) => {
       const row = byCheck.get(id);
-      const item = element("li");
-      const jump = element("button");
+      const item = el("li");
+      const jump = el("button");
       jump.type = "button";
-      jump.append(element("span", "tag " + row.state, stateLabel(row.state, id)), element("span", "", row.label + " · " + row.host));
-      jump.onclick = () => { selectedNode = nodeFor(id); render(); byId("findings").focus(); };
+      const tag = status(row.state, stateLabel(row.state, id)); tag.className += " tag";
+      const what = el("span", "what", row.label + " ");
+      what.append(el("span", "host", "· " + row.host));
+      jump.append(tag, what);
+      jump.onclick = () => { selectedNode = nodeFor(id); render(); };
       item.append(jump);
       return item;
-    }) : [element("li", "small", "Nothing needs attention.")]));
-    if (scenario.attention.length > top.length) byId("attention").append(element("li", "small", "+ " + (scenario.attention.length - top.length) + " more need verification"));
+    }) : [el("li", "small", "Nothing needs attention.")]));
+    if (scenario.attention.length > top.length) byId("attention").append(el("li", "small", `+ ${scenario.attention.length - top.length} more unverified`));
 
-    const agent = selectedView === "demo" && selectedScenario > 0 ? null : view.agent;
-    byId("agent-meta").textContent = agent ? "Codex · " + stamp(agent.generatedAt) + (selectedView === "demo" ? " · sample run" : "") : "";
-    byId("agent-summary").textContent = agent ? agent.summary : selectedView === "demo" ? "Restic is verified in this scenario. Run the agent again after a change for fresh findings." : "No investigation yet. Run the agent to have Codex read the receipts and explain what to do.";
-    byId("agent-findings").replaceChildren(...(agent?.findings ?? []).map((finding) => {
-      const item = element("li", finding.severity);
-      item.append(element("h3", "", finding.title));
-      item.append(element("p", "small " + (finding.confidence === "confirmed" ? "current" : "unknown"), finding.severity + " · " + finding.confidence));
-      item.append(element("p", "small", finding.whatHappened));
-      if (finding.evidence.length) {
-        const list = element("ul");
-        list.append(...finding.evidence.map((line) => element("li", "", line)));
-        item.append(list);
-      }
-      item.append(element("p", "next", "Next: " + finding.nextStep));
-      return item;
-    }));
-    byId("agent-trace-box").hidden = !agent?.trace?.length;
-    byId("agent-trace").replaceChildren(...(agent?.trace ?? []).map((step) => {
-      const item = element("li");
-      item.append(element("span", "", step.kind === "ran" ? "Ran " : step.kind === "nudox" ? "Nudox lookup " : "Noted "), element("code", "", step.text));
-      return item;
-    }));
+    // Map node states.
+    for (const [node, { button, foot }] of nodeButtons) {
+      const state = worst(node.ids.map((id) => byCheck.get(id).state));
+      foot.replaceChildren(status(state, state === "failed" && node.name === "Deploy drift" ? "Drift" : stateLabel(state)));
+      button.setAttribute("aria-pressed", node === selectedNode);
+    }
 
+    // Selected node.
     byId("selection").textContent = selectedNode.name;
-    const coverageLabel = coverage === "unknown" ? "still needs verification" : "is " + coverage;
-    byId("selection-detail").textContent = selectedNode.detail +
-      (selectedNode.name === "Nextcloud recovery" ? " Archive coverage " + coverageLabel + "." : "");
+    byId("selection-host").textContent = selectedNode.host;
+    byId("selection-detail").textContent = selectedNode.detail;
     byId("checks").replaceChildren(...selectedNode.ids.map((id) => {
       const row = byCheck.get(id);
-      const pending = row.state === "unknown" && selectedView === "live";
-      const item = element("li", pending ? "pending" : "");
-      const heading = element("div", "check-head");
-      heading.append(element("strong", "", row.label),
-        element("span", "small " + row.state, stateLabel(row.state, id)));
-      item.append(heading);
-      if (!pending) item.append(element("p", "small", stamp(row.observedAt)));
-      item.append(element("p", "small intro", pending ? "Next step · " + row.nextCheck : row.nextCheck));
+      const item = el("li");
+      const head = el("div", "check-head");
+      head.append(el("strong", "", row.label), status(row.state, stateLabel(row.state, id)));
+      item.append(head);
+      if (row.observedAt) item.append(el("p", "small", stamp(row.observedAt)));
+      item.append(el("p", "small", "Next · " + row.nextCheck));
       return item;
     }));
     byId("trace-symbol").textContent = selectedNode.trace[0];
     byId("trace-detail").textContent = selectedNode.trace[1];
 
-    byId("comparison").textContent = comparedAt ? "Compared with " + stamp(comparedAt) : "No baseline";
+    // What changed.
+    byId("comparison").textContent = comparedAt ? "vs " + stamp(comparedAt) : "no baseline";
     byId("changes").replaceChildren(...changes.map((change) => {
-      const row = element("li");
-      const link = element("button", "link");
-      link.type = "button";
-      link.append(element("span", "", change.label),
-        element("span", "small " + change.after, change.before === "unknown" ? "First reading · " + stateLabel(change.after, change.id) : stateLabel(change.before, change.id) + " → " + stateLabel(change.after, change.id)));
-      link.onclick = () => {
-        selectedNode = nodeFor(change.id);
-        render();
-        byId("findings").focus();
-      };
-      row.append(link);
-      return row;
+      const li = el("li");
+      const b = el("button");
+      b.type = "button";
+      b.append(el("span", "", change.label), el("span", "delta " + change.after,
+        change.before === "unknown" ? "New · " + stateLabel(change.after, change.id)
+          : stateLabel(change.before, change.id) + " → " + stateLabel(change.after, change.id)));
+      b.onclick = () => { selectedNode = nodeFor(change.id); render(); };
+      li.append(b);
+      return li;
     }));
-    if (!changes.length) {
-      byId("changes").append(element("li", "small", comparedAt ? "No check states changed." : "Save a snapshot to compare the next check."));
-    }
+    if (!changes.length) byId("changes").append(el("li", "small", comparedAt ? "No check changed since the last run." : "The next refresh will show changes."));
     byId("alert-preview").hidden = !alert;
     byId("alert-title").textContent = alert?.title ?? "";
     byId("alert-message").textContent = alert?.message ?? "";
+
+    // Agent.
+    const agent = selectedView === "demo" && selectedScenario > 0 ? null : view.agent;
+    byId("agent-meta").textContent = agent
+      ? `Codex${agent.nudox ? " + Nudox" : ""} · ${stamp(agent.generatedAt)}${selectedView === "demo" ? " · sample" : ""}`
+      : "";
+    byId("agent-summary").textContent = agent ? agent.summary
+      : selectedView === "demo" ? "Restic is verified in this story. Nothing for the agent to chase."
+      : "No investigation yet. Refresh Homelab runs the agent.";
+    byId("agent-findings").replaceChildren(...(agent?.findings ?? []).map((f, i) => {
+      const box = el("details", "finding " + f.severity);
+      if (i === 0) box.open = true;
+      const sum = el("summary");
+      const meta = el("span", "meta");
+      meta.append(el("span", f.severity === "high" ? "failed" : f.severity === "medium" ? "stale" : "unknown", f.severity), el("span", "", f.confidence));
+      sum.append(el("strong", "", f.title), meta);
+      const body = el("div", "body");
+      body.append(el("p", "small", f.whatHappened));
+      if (f.evidence.length) {
+        const ul = el("ul");
+        ul.append(...f.evidence.map((line) => el("li", "", line)));
+        body.append(ul);
+      }
+      const next = el("p", "next");
+      next.append(el("b", "", "Next: "), document.createTextNode(f.nextStep));
+      body.append(next);
+      box.append(sum, body);
+      return box;
+    }));
+    byId("agent-trace-box").hidden = !agent?.trace?.length;
+    byId("agent-trace").replaceChildren(...(agent?.trace ?? []).map((step) => {
+      const li = el("li");
+      li.append(el("span", "kind " + step.kind, step.kind === "ran" ? "Read" : step.kind === "nudox" ? "Nudox" : "Noted"), el("code", "", step.text));
+      return li;
+    }));
   }
 
-  function selectView(view) {
-    selectedView = view;
-    selectedScenario = 0;
-    byId("map").hidden = view === "live";
-    byId("hosts").hidden = view !== "live";
-    byId("map-title").textContent = view === "live" ? "Hosts and backup paths" : "Lab map";
-    const scenarios = byId("scenarios");
-    scenarios.hidden = view !== "demo";
-    scenarios.replaceChildren();
-    if (view === "demo") {
-      const labels = ["Snapshot missing", "Snapshot verified"];
-      data.demo.scenarios.forEach((scenario, index) => {
-        control(scenarios, labels[index] ?? scenario.label, index === 0, () => { selectedScenario = index; });
-      });
+  buildMap();
+  const story = byId("story");
+  function setStory() {
+    story.hidden = selectedView !== "demo";
+    if (selectedView === "demo") {
+      segmented(byId("scenarios"), ["Snapshot missing", "Snapshot verified"], selectedScenario, (i) => { selectedScenario = i; });
     }
-    byId("alert-preview").open = false;
   }
-
   if (data.live) {
-    const views = byId("views");
-    views.hidden = false;
-    control(views, "Live", true, () => selectView("live"));
-    control(views, "Demo", false, () => selectView("demo"));
+    byId("views").hidden = false;
+    segmented(byId("views"), ["Live · my lab", "Demo · sample"], 0, (i) => {
+      selectedView = i === 0 ? "live" : "demo";
+      selectedScenario = 0;
+      setStory();
+    });
   }
-  selectView(selectedView);
+  setStory();
   render();
 </script>
 </body>
