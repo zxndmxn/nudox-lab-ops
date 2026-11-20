@@ -1,0 +1,10 @@
+{
+  "name": "nudox-lab-ops",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node dashboard/serve.ts",
+    "demo": "node dashboard/build.ts lab-ops-demo.html",
+    "test": "node --test lab-ops/briefing.test.ts dashboard/archive-receipts.test.ts"
+  }
+}

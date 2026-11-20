@@ -1,5 +1,5 @@
 // Lab Ops agent: hands the current briefing and local receipts to Codex and saves its findings for
-// the dashboard. Codex works in a disposable copy (the only folder its sandbox can write), has no
+// the dashboard. Codex works in a disposable copy (--approve-for-me uses the workspace-write sandbox, so that copy is the only folder it can write), has no
 // network or host access, and is told to only read. Addresses are redacted before it sees anything.
 //
 // Usage: node lab-ops/agent/investigate.ts --evidence EVIDENCE.json --out FINDINGS.json [--receipts DIR] [--no-nudox]
@@ -102,13 +102,16 @@ try {
   const env: NodeJS.ProcessEnv = { ...process.env };
   if (nudox) {
     config.push("-c", `mcp_servers.nudox.url="${nudox.url}"`,
-      "-c", 'mcp_servers.nudox.env_http_headers={ Authorization = "LAB_OPS_NUDOX_AUTH" }');
+      "-c", 'mcp_servers.nudox.env_http_headers={ Authorization = "LAB_OPS_NUDOX_AUTH" }',
+      // Nudox tools only read the index. codex exec cannot answer approval prompts, so tool approvals go through
+      // --approve-for-me (automatic review) instead of being cancelled.
+      "-c", 'mcp_servers.nudox.default_tools_approval_mode="auto"');
     env.LAB_OPS_NUDOX_AUTH = `Bearer ${nudox.token}`;
   }
   const prompt = readFileSync(new URL("./PROMPT.md", import.meta.url), "utf8");
   const last = `${work}-result.json`; // outside the agent folder so Codex never reads its own output
   const child = spawn(findCodex(), [
-    "exec", "-s", "workspace-write", "--skip-git-repo-check", "--ephemeral", "--json",
+    "exec", "--approve-for-me", "--skip-git-repo-check", "--ephemeral", "--json",
     "--color", "never", "-C", work,
     "--output-schema", fileURLToPath(new URL("./schema.json", import.meta.url)),
     "-o", last, ...config, "-",
@@ -135,7 +138,9 @@ try {
           process.stderr.write(`  ran: ${String(item.command).slice(0, 100)}\n`);
         } else if (item.type === "mcp_tool_call") {
           if (item.server === "nudox") {
-            const detail = item.arguments ? " " + JSON.stringify(item.arguments).slice(0, 80) : "";
+            // Show symbol names, not the absolute paths inside Nudox keys.
+            const detail = item.arguments ? " " + JSON.stringify(item.arguments)
+              .replace(/npm:lab-ops::'[^']*?([\w-]+)'\.?/g, "$1.").replace(/\\+/g, "").slice(0, 90) : "";
             trace.push({ kind: "nudox", text: `${item.tool ?? "lookup"}${detail}` });
             process.stderr.write(`  nudox: ${item.tool}${detail}\n`);
           }

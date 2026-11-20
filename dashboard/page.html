@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Lab Ops</title>
   <style>
     :root {
@@ -20,7 +20,7 @@
       --stale: #f2c879;
       --failed: #ff9d97;
       --unknown: #8a9b97;
-      --radius: 12px;
+      --radius: 6px;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -36,33 +36,43 @@
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
     code { color: var(--accent); font: 12px/1.4 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 
-    .app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; height: 100vh; padding: 14px 18px; max-width: 1680px; margin: auto; }
+    .app { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; height: 100vh; padding: 14px 18px; max-width: 1680px; margin: auto; }
 
     /* Top bar */
     .top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
     .brand h1 { font-size: 22px; font-weight: 720; letter-spacing: -.03em; }
     .brand p { margin-top: 1px; }
+    .ops { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+    .ops + .switches { margin-left: 0; }
+    button.chip { background: transparent; cursor: pointer; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; }
+    .btn { border: 1px solid var(--line); background: var(--panel); padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 13px; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b1a12; }
+    .btn:disabled { opacity: .5; cursor: progress; }
+    .log { position: fixed; right: 18px; bottom: 18px; width: min(560px, calc(100vw - 36px)); max-height: 46vh; overflow: auto; background: #0a100f; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); white-space: pre-wrap; box-shadow: 0 10px 40px #000a; z-index: 5; }
+    .log b { color: var(--text); font-family: system-ui, sans-serif; }
     .switches { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
-    .seg .thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; border-radius: 999px; background: var(--accent); transition: transform .22s ease, width .22s ease; }
-    .seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 6px 16px; border-radius: 999px; font-weight: 620; white-space: nowrap; transition: color .2s; }
+    .seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); }
+    .seg .thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; border-radius: 4px; background: var(--accent); transition: transform .22s ease, width .22s ease; }
+    .seg button { position: relative; z-index: 1; border: 0; background: transparent; padding: 5px 14px; border-radius: 4px; font-weight: 600; white-space: nowrap; transition: color .2s; }
     .seg button[aria-pressed=true] { color: #0b1a12; }
     .seg.small-seg button { padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
     .story { display: flex; align-items: center; gap: 8px; }
     .story-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
     /* Verdict strip */
-    .strip { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 12px; }
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
-    .verdict { display: grid; gap: 8px; border-left: 4px solid var(--unknown); }
+    .strip { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 10px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; min-width: 0; }
+    .verdict { display: grid; gap: 8px; border-left: 3px solid var(--unknown); }
     .verdict.gap { border-left-color: var(--stale); }
     .verdict.verified { border-left-color: var(--current); }
     .verdict-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-    .verdict-state { font-size: 24px; font-weight: 720; letter-spacing: -.03em; line-height: 1.1; }
+    .verdict-state { font-size: 22px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
     .chain { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 6px; }
-    .chain .step { display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); }
+    .chain .step { display: grid; gap: 1px; padding: 5px 8px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); }
     .chain .step b { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-    .chain .step span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+    .chain .step > span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
     .chain .arrow { color: var(--muted); font-size: 12px; }
     .attention-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 16px; align-content: start; }
     .attention-card h2 { grid-column: 1 / -1; }
@@ -72,11 +82,11 @@
     .attention .tag { flex-shrink: 0; width: 108px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
     .attention .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .attention .host { color: var(--muted); }
-    h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+    h2 { font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
 
     /* Main grid */
-    .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) minmax(0, 1.2fr); gap: 12px; min-height: 0; }
-    .col { display: grid; gap: 12px; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) minmax(0, 1.2fr); gap: 10px; min-height: 0; }
+    .col { display: grid; gap: 10px; min-height: 0; grid-template-rows: minmax(0, 1fr); }
     .col.split { grid-template-rows: minmax(0, 1.2fr) minmax(0, .8fr); }
     .panel { display: flex; flex-direction: column; min-height: 0; }
     .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -90,9 +100,9 @@
     .lane-title h3 { font-size: 13.5px; font-weight: 650; }
     .lane-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .lane.route .node:not(:first-child)::before { content: "→"; position: absolute; left: -9px; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 12px; }
-    .node { position: relative; display: grid; gap: 2px; text-align: left; padding: 9px 10px; border-radius: 10px; background: var(--chip); border: 1px solid var(--line); transition: background .15s, border-color .15s; }
+    .node { position: relative; display: grid; gap: 1px; text-align: left; padding: 7px 9px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); transition: background .15s, border-color .15s; }
     .node:hover { background: var(--raised); }
-    .node[aria-pressed=true] { border-color: var(--accent); background: var(--raised); box-shadow: 0 0 0 1px var(--accent) inset; }
+    .node[aria-pressed=true] { border-color: var(--accent); background: var(--raised); }
     .node-name { font-weight: 640; font-size: 13.5px; }
     .node-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
     .flow { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); text-align: center; }
@@ -103,19 +113,19 @@
     .check-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
     .check-head strong { font-size: 13px; font-weight: 620; }
     .check-head span { flex-shrink: 0; font-size: 12px; }
-    .nudox { margin-top: 10px; padding: 8px 10px; border-radius: 9px; background: var(--chip); border: 1px solid var(--line); }
+    .nudox { margin-top: 10px; padding: 7px 9px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); }
 
     /* Changes */
     .changes li button { width: 100%; display: flex; justify-content: space-between; gap: 10px; border: 0; background: transparent; padding: 7px 0; border-bottom: 1px solid var(--line); text-align: left; }
     .changes li:last-child button { border-bottom: 0; }
     .changes li button:hover > span:first-child { color: var(--accent); }
     .changes .delta { flex-shrink: 0; font-size: 12px; }
-    .alert { margin-top: 10px; padding: 8px 10px; border-radius: 9px; border: 1px dashed var(--line); }
+    .alert { margin-top: 10px; padding: 7px 9px; border-radius: 4px; border: 1px dashed var(--line); }
     .alert strong { font-size: 13px; }
 
     /* Agent */
-    .agent-summary { font-size: 14px; line-height: 1.5; padding: 10px 12px; border-radius: 10px; background: var(--chip); border: 1px solid var(--line); margin-bottom: 10px; }
-    .finding { border: 1px solid var(--line); border-left: 4px solid var(--unknown); border-radius: 10px; background: var(--bg); margin-bottom: 8px; }
+    .agent-summary { font-size: 13.5px; line-height: 1.5; padding: 9px 11px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); margin-bottom: 10px; }
+    .finding { border: 1px solid var(--line); border-left: 3px solid var(--unknown); border-radius: 4px; background: var(--bg); margin-bottom: 8px; }
     .finding.high { border-left-color: var(--failed); }
     .finding.medium { border-left-color: var(--stale); }
     .finding summary { list-style: none; padding: 9px 12px; display: grid; gap: 2px; cursor: pointer; }
@@ -152,6 +162,14 @@
     <div class="brand">
       <h1>Lab Ops</h1>
       <p class="small" id="data-mode"></p>
+    </div>
+    <div class="ops" id="ops" hidden>
+      <span class="chip" id="op-keys"></span>
+      <span class="chip" id="op-nudox"></span>
+      <button type="button" class="btn" id="op-unlock">Unlock SSH</button>
+      <button type="button" class="btn primary" id="op-refresh">Refresh</button>
+      <button type="button" class="btn" id="op-mock" title="Replay saved receipts, no SSH">Mock run</button>
+      <button type="button" class="chip" id="op-log" hidden></button>
     </div>
     <div class="switches">
       <div class="story" id="story" hidden>
@@ -242,6 +260,7 @@
     </div>
   </section>
 </div>
+<pre class="log" id="log" hidden></pre>
 <script id="briefing-data" type="application/json">__BRIEFING_DATA__</script>
 <script>
   const data = JSON.parse(document.getElementById("briefing-data").textContent);
@@ -317,7 +336,7 @@
       buttons.forEach((b, i) => b.setAttribute("aria-pressed", i === index));
       const b = buttons[index];
       thumb.style.width = b.offsetWidth + "px";
-      thumb.style.transform = `translateX(${b.offsetLeft - 4}px)`;
+      thumb.style.transform = `translateX(${b.offsetLeft - 3}px)`;
     }
     requestAnimationFrame(() => place(active));
     return place;
@@ -481,6 +500,46 @@
   }
   setStory();
   render();
+
+  // Controls only work when Lab Ops is served by dashboard/serve.ts (http://127.0.0.1:4174).
+  if (location.protocol.startsWith("http")) {
+    const ops = byId("ops"), log = byId("log");
+    ops.hidden = false;
+    const buttons = ["op-unlock", "op-refresh", "op-mock"].map(byId);
+    let wasRunning = false;
+    async function call(path) {
+      const r = await fetch(path, { method: "POST" });
+      if (!r.ok) log.textContent = (await r.json().catch(() => ({}))).error ?? "Request failed.";
+      poll();
+    }
+    async function poll() {
+      try {
+        const s = await (await fetch("/api/status")).json();
+        byId("op-keys").replaceChildren(status(s.keys === 3 ? "current" : s.keys ? "stale" : "unknown", `SSH keys ${s.keys}/3`));
+        byId("op-nudox").replaceChildren(status(s.nudox ? "current" : "unknown", s.nudox ? "Nudox on" : "Nudox off"));
+        buttons.forEach((b) => b.disabled = !!s.running);
+        const logBtn = byId("op-log");
+        logBtn.hidden = !s.lastJob;
+        logBtn.replaceChildren(status(s.running ? "stale" : s.ok ? "current" : "failed", s.running ? "Running…" : `Last ${s.lastJob}: ${s.ok ? "done" : "failed"}`));
+        if (s.running) log.hidden = false;
+        if (!log.hidden) {
+          log.textContent = "";
+          log.append(el("b", "", s.running ? `Running: ${s.running}\n` : `Last run: ${s.lastJob ?? ""}\n`));
+          log.append(document.createTextNode(s.log.join("\n")));
+          log.scrollTop = log.scrollHeight;
+        }
+        if (wasRunning && !s.running && s.ok) location.href = s.lastJob === "mock" ? "/mock" : "/";
+        wasRunning = !!s.running;
+        setTimeout(poll, s.running ? 1000 : 5000);
+      } catch { setTimeout(poll, 5000); }
+    }
+    byId("op-unlock").onclick = () => call("/api/unlock");
+    byId("op-refresh").onclick = () => call("/api/refresh");
+    byId("op-mock").onclick = () => call("/api/mock");
+    byId("op-log").onclick = () => { log.hidden = !log.hidden; poll(); };
+    log.onclick = () => { log.hidden = true; };
+    poll();
+  }
 </script>
 </body>
 </html>
