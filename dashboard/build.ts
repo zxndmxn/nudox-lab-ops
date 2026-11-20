@@ -1,16 +1,19 @@
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { buildBriefing, needsAttention, nextcloudBackupCoverage, resticReadiness } from "../lab-ops/briefing.ts";
-import { loadLocalEvidence, parseEvidence, readLocalExport } from "../lab-ops/evidence.ts";
-import { compareBriefings, previewCoverageAlert } from "../lab-ops/changes.ts";
+import { buildBriefing } from "../lab-ops/briefing.ts";
+import { loadLocalEvidence, readLocalExport } from "../lab-ops/evidence.ts";
 import { demoDate, demoEvidence } from "../lab-ops/sample.ts";
+import { readSnapshot, scenario } from "./view-data.ts";
 
 const argv = process.argv.slice(2);
+const mockFlag = argv.indexOf("--mock");
+const mock = mockFlag >= 0;
+if (mock) argv.splice(mockFlag, 1);
 const agentFlag = argv.indexOf("--agent");
 const agentPath = agentFlag >= 0 ? argv.splice(agentFlag, 2)[1] : undefined;
 const [output, evidencePath, baselinePath, ...extra] = argv;
 if (!output || extra.length) {
-  throw new Error("Usage: node dashboard/build.ts OUTPUT.html [LOCAL-EVIDENCE.json] [BASELINE.json] [--agent FINDINGS.json]");
+  throw new Error("Usage: node dashboard/build.ts OUTPUT.html [LOCAL-EVIDENCE.json] [BASELINE.json] [--agent FINDINGS.json] [--mock]");
 }
 if (evidencePath) {
   const checkout = realpathSync(resolve(import.meta.dirname, ".."));
@@ -20,29 +23,6 @@ if (evidencePath) {
   if (location === "" || (!isAbsolute(location) && location !== ".." && !location.startsWith(".." + sep))) {
     throw new Error("Keep live dashboards outside the project checkout.");
   }
-}
-
-type Briefing = ReturnType<typeof buildBriefing>;
-
-function readBaseline(path: string, asOf: Date) {
-  const snapshot = readLocalExport(path);
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) ||
-      !("asOf" in snapshot) || typeof snapshot.asOf !== "string" || !("evidence" in snapshot)) {
-    throw new Error("Baseline must be a saved Lab Ops snapshot.");
-  }
-  const comparedAt = new Date(snapshot.asOf);
-  if (!Number.isFinite(comparedAt.getTime()) || comparedAt >= asOf) {
-    throw new Error("Baseline must be earlier than this briefing.");
-  }
-  return { comparedAt, rows: buildBriefing(parseEvidence(snapshot.evidence), comparedAt) };
-}
-
-function scenario(label: string, current: Briefing, baseline: Briefing | null, at: Date | null) {
-  return { label, rows: current, coverage: nextcloudBackupCoverage(current),
-    readiness: resticReadiness(current), attention: needsAttention(current).map(({ id }) => id),
-    comparedAt: at?.toISOString() ?? null,
-    changes: baseline ? compareBriefings(baseline, current) : [],
-    alert: baseline ? previewCoverageAlert(baseline, current) : null };
 }
 
 function demoView() {
@@ -76,11 +56,12 @@ function demoView() {
 function liveView(path: string) {
   const now = new Date();
   const rows = buildBriefing(loadLocalEvidence(path), now);
-  const baseline = baselinePath ? readBaseline(baselinePath, now) : null;
+  const baseline = baselinePath ? readSnapshot(baselinePath) : null;
+  if (baseline && baseline.at >= now) throw new Error("Baseline must be earlier than this briefing.");
   return {
-    asOf: now.toISOString(),
+    asOf: now.toISOString(), mock,
     agent: agentPath ? readLocalExport(agentPath) : null,
-    scenarios: [scenario("Local evidence", rows, baseline?.rows ?? null, baseline?.comparedAt ?? null)],
+    scenarios: [scenario("Local evidence", rows, baseline?.rows ?? null, baseline?.at ?? null)],
   };
 }
 

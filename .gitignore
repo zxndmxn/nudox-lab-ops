@@ -5,3 +5,15 @@ __pycache__/
 *.log
 .local/
 dist/
+.ssh/
+NudoxLabOps/
+receipts/
+lab-ops-history/
+agent-findings*.json
+lab-ops-*-evidence.json
+endpoint.json
+*.pem
+*.ppk
+id_ed25519*
+id_rsa*
+laptop_*_ed25519*

@@ -1,11 +1,13 @@
 // Lab Ops local app: serves the dashboard on 127.0.0.1 and runs the lab scripts from buttons on the page.
 // Usage: node dashboard/serve.ts [--data DIR] [--port 4174]
-// DIR holds the private live files and scripts (default %LOCALAPPDATA%\NudoxLabOps). Nothing leaves this machine.
+// DIR holds the private live files and scripts (default %LOCALAPPDATA%\NudoxLabOps).
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLocalExport } from "../lab-ops/evidence.ts";
+import { readSnapshot, scenario } from "./view-data.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string, fallback: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback; };
@@ -14,6 +16,8 @@ const data = opt("--data", join(process.env.LOCALAPPDATA ?? "", "NudoxLabOps"));
 const port = Number(opt("--port", "4174"));
 const bash = "C:/Program Files/Git/bin/bash.exe";
 const origin = `http://127.0.0.1:${port}`;
+const history = join(data, "lab-ops-history");
+const runId = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
 
 let running: string | null = null;
 let lastJob: string | null = null;
@@ -59,22 +63,64 @@ function page(res: ServerResponse, file: string) {
   send(res, 200, readFileSync(path, "utf8"), "text/html; charset=utf-8");
 }
 
+function snapshots() {
+  if (!existsSync(history)) return [];
+  return readdirSync(history, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && runId.test(entry.name) &&
+      plainFile(join(history, entry.name, "snapshot.json")))
+    .map((entry) => entry.name).sort().reverse();
+}
+
+function plainFile(path: string) {
+  return lstatSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
+}
+
+function pastRun(id: string) {
+  const runs = snapshots();
+  const index = runs.indexOf(id);
+  if (index < 0) return null;
+  const current = readSnapshot(join(history, id, "snapshot.json"));
+  const previousId = runs[index + 1];
+  const previous = previousId ? readSnapshot(join(history, previousId, "snapshot.json")) : null;
+  const baseline = previous && previous.at < current.at ? previous : null;
+  const findings = join(history, id, "agent-findings.json");
+  return {
+    asOf: current.at.toISOString(), historical: true,
+    agent: plainFile(findings) ? readLocalExport(findings) : null,
+    scenarios: [scenario("Past run", current.rows, baseline?.rows ?? null, baseline?.at ?? null)],
+  };
+}
+
 createServer((req: IncomingMessage, res: ServerResponse) => {
+  if (req.headers.host !== new URL(origin).host) return send(res, 403, { error: "Open Lab Ops at " + origin });
   const url = new URL(req.url ?? "/", origin);
   if (req.method === "POST") {
     // Only this page may trigger jobs.
     if (req.headers.origin !== origin) return send(res, 403, { error: "Cross-origin request refused." });
+    if (running) return send(res, 409, { error: `Already running: ${running}` });
     if (url.pathname === "/api/unlock") {
+      keysCache = { at: Date.now(), value: sshKeys() };
+      if (keysCache.value >= 3) return send(res, 200, { ok: true, alreadyUnlocked: true });
       // Opens a visible terminal so you type your passphrases yourself.
       spawn("cmd.exe", ["/d", "/c", "start", "Lab SSH Unlock", bash, "--noprofile", "--norc", join(data, "unlock-lab-ssh.sh")],
         { detached: true, stdio: "ignore" }).unref();
       keysCache.at = 0;
       return send(res, 200, { ok: true });
     }
-    if (running) return send(res, 409, { error: `Already running: ${running}` });
     if (url.pathname === "/api/refresh") { run("refresh", []); return send(res, 200, { ok: true }); }
     if (url.pathname === "/api/mock") { run("mock", ["--mock"]); return send(res, 200, { ok: true }); }
     return send(res, 404, { error: "Unknown action." });
+  }
+  if (req.method !== "GET") return send(res, 405, { error: "Method not allowed." });
+  if (url.pathname === "/api/history" || url.pathname.startsWith("/api/history/")) {
+    try {
+      if (url.pathname === "/api/history") return send(res, 200, { runs: snapshots() });
+      const id = url.pathname.slice("/api/history/".length);
+      const run = runId.test(id) ? pastRun(id) : null;
+      return run ? send(res, 200, run) : send(res, 404, { error: "Run not found." });
+    } catch {
+      return send(res, 500, { error: "Could not read run history." });
+    }
   }
   if (url.pathname === "/") return page(res, "Lab Ops live.html");
   if (url.pathname === "/mock") return page(res, "Lab Ops mock.html");

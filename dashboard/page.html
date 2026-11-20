@@ -29,7 +29,7 @@
     ol, ul { padding: 0; list-style: none; }
     button { font: inherit; color: inherit; cursor: pointer; }
     [hidden] { display: none !important; }
-    button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button:focus-visible, summary:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .small { font-size: 12.5px; color: var(--muted); }
     .current { color: var(--current); } .stale { color: var(--stale); } .failed { color: var(--failed); } .unknown { color: var(--unknown); }
     .state { display: inline-flex; align-items: center; gap: 6px; }
@@ -48,12 +48,16 @@
     .chip:empty { display: none; }
     .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; }
     .btn { border: 1px solid var(--line); background: var(--panel); padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 13px; }
-    .btn:hover { border-color: var(--accent); }
+    .btn:not(:disabled):hover { border-color: var(--accent); background: var(--raised); }
     .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b1a12; }
+    .btn.primary:not(:disabled):hover { background: #a2e8b1; }
     .btn:disabled { opacity: .5; cursor: progress; }
+    #op-unlock:disabled { cursor: default; }
     .log { position: fixed; right: 18px; bottom: 18px; width: min(560px, calc(100vw - 36px)); max-height: 46vh; overflow: auto; background: #0a100f; border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); white-space: pre-wrap; box-shadow: 0 10px 40px #000a; z-index: 5; }
     .log b { color: var(--text); font-family: system-ui, sans-serif; }
     .switches { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .history select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; }
+    #agent-usage { margin-bottom: 6px; }
     .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
     .tabs button { border: 0; border-right: 1px solid var(--line); background: var(--panel); padding: 6px 16px; font-weight: 600; font-size: 13px; color: var(--muted); }
     .tabs button:last-child { border-right: 0; }
@@ -105,9 +109,9 @@
     .lane-title h3 { font-size: 13.5px; font-weight: 650; }
     .lane-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .lane.route .node:not(:first-child)::before { content: "→"; position: absolute; left: -9px; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 12px; }
-    .node { position: relative; display: grid; gap: 1px; text-align: left; padding: 7px 9px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); transition: background .15s, border-color .15s; }
-    .node:hover { background: var(--raised); }
-    .node[aria-pressed=true] { border-color: var(--accent); background: var(--raised); }
+    .node { position: relative; display: grid; gap: 1px; text-align: left; padding: 7px 9px; border-radius: 4px; background: var(--chip); border: 1px solid var(--line); }
+    .node:hover { background: var(--raised); border-color: var(--muted); }
+    .node[aria-pressed=true] { border-color: var(--accent); background: var(--raised); box-shadow: inset 0 0 0 1px #8fe0a222; }
     .node-name { font-weight: 640; font-size: 13.5px; }
     .node-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
     .flow { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); text-align: center; }
@@ -133,8 +137,12 @@
     .finding { border: 1px solid var(--line); border-left: 3px solid var(--unknown); border-radius: 4px; background: var(--bg); margin-bottom: 8px; }
     .finding.high { border-left-color: var(--failed); }
     .finding.medium { border-left-color: var(--stale); }
-    .finding summary { list-style: none; padding: 9px 12px; display: grid; gap: 2px; cursor: pointer; }
+    .finding summary { list-style: none; padding: 9px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; cursor: pointer; }
     .finding summary::-webkit-details-marker { display: none; }
+    .finding summary::after { content: ""; grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 7px; height: 7px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg) translateY(-2px); }
+    .finding[open] summary::after { transform: rotate(225deg) translateY(-2px); }
+    .finding summary:hover { background: var(--chip); }
+    .finding[open] { box-shadow: 0 2px 12px #0002; }
     .finding summary strong { font-size: 13.5px; font-weight: 640; }
     .finding .meta { display: flex; gap: 8px; font-size: 12px; color: var(--muted); }
     .finding .body { padding: 0 12px 10px; display: grid; gap: 6px; }
@@ -147,6 +155,29 @@
     .trace li { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; }
     .trace .kind { flex-shrink: 0; width: 64px; color: var(--muted); }
     .trace .kind.nudox { color: var(--accent); }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .strip, .grid > .col { animation: settle-in 210ms ease-out both; }
+      .grid > .col { animation-delay: 35ms; }
+      .grid > .col + .col { animation-delay: 65ms; }
+      .grid > .col:last-child { animation-delay: 95ms; }
+      .btn, .node, .finding summary { transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+      .finding summary::after { transition: transform 160ms ease; }
+      .log:not([hidden]) { animation: settle-in 160ms ease-out both; }
+      #op-log.is-running .dot { animation: running-pulse 1.7s ease-out infinite; }
+      @media (hover: hover) {
+        .node:hover, .btn:not(:disabled):hover { transform: translateY(-1px); }
+        .node:active, .btn:not(:disabled):active { transform: translateY(0); }
+      }
+      @keyframes settle-in {
+        from { opacity: .85; transform: translateY(3px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes running-pulse {
+        from { box-shadow: 0 0 0 0 #f2c87950; }
+        to { box-shadow: 0 0 0 5px #f2c87900; }
+      }
+    }
 
     @media (max-width: 1180px) {
       .app { height: auto; }
@@ -175,12 +206,15 @@
     <div class="ops" id="ops" hidden>
       <span class="chip" id="op-keys"></span>
       <span class="chip" id="op-nudox"></span>
-      <button type="button" class="btn" id="op-unlock">Unlock SSH</button>
+      <button type="button" class="btn" id="op-unlock" disabled>Unlock SSH</button>
       <button type="button" class="btn primary" id="op-refresh">Refresh</button>
       <button type="button" class="btn" id="op-mock" title="Replay saved receipts, no SSH">Mock run</button>
       <button type="button" class="chip" id="op-log" hidden></button>
     </div>
     <div class="switches">
+      <label class="small history" id="history-control" hidden>
+        <select id="past-runs" aria-label="Past runs"><option value="">Latest run</option></select>
+      </label>
       <div class="tabs" id="views" role="tablist" aria-label="Dashboard view" hidden></div>
     </div>
   </header>
@@ -254,6 +288,7 @@
           <span class="small" id="agent-meta"></span>
         </div>
         <div class="scroll">
+          <p class="small" id="agent-usage" hidden></p>
           <p class="agent-summary" id="agent-summary"></p>
           <div id="agent-findings"></div>
           <details class="trace" id="agent-trace-box">
@@ -310,6 +345,7 @@
   const worst = (states) => states.reduce((a, b) => priority[b] < priority[a] ? b : a);
 
   let selectedView = data.live ? "live" : "demo";
+  let past = null;
   let selectedScenario = 0;
   let selectedNode = nodes.find((node) => node.name === "Deploy drift");
   const nodeButtons = new Map();
@@ -359,14 +395,15 @@
   }
 
   function render() {
-    const view = data[selectedView];
+    const view = selectedView === "live" && past ? past : data[selectedView];
     const scenario = view.scenarios[selectedScenario];
     const { rows, changes, comparedAt, alert } = scenario;
     const byCheck = new Map(rows.map((row) => [row.id, row]));
     const latest = rows.map(({ observedAt }) => observedAt)
       .filter((t) => t && Date.parse(t) <= Date.parse(view.asOf)).sort().at(-1);
     byId("data-mode").textContent = selectedView === "live"
-      ? "Your lab · latest evidence " + (latest ? stamp(latest) : "none yet")
+      ? view.historical ? "Past run · " + stamp(view.asOf)
+        : (view.mock ? "Mock run · replayed evidence " : "Your lab · latest evidence ") + (latest ? stamp(latest) : "none yet")
       : "Demo · fictional sample data for walkthroughs";
 
     // Verdict and restic chain.
@@ -398,7 +435,7 @@
       item.append(jump);
       return item;
     }) : [el("li", "small", "Nothing needs attention.")]));
-    if (scenario.attention.length > top.length) byId("attention").append(el("li", "small", `+ ${scenario.attention.length - top.length} more unverified`));
+    if (scenario.attention.length > top.length) byId("attention").append(el("li", "small", `+ ${scenario.attention.length - top.length} more checks`));
 
     // Map node states.
     for (const [node, { button, foot }] of nodeButtons) {
@@ -447,9 +484,13 @@
     byId("agent-meta").textContent = agent
       ? `Codex${agent.nudox ? " + Nudox" : ""} · ${stamp(agent.generatedAt)}${selectedView === "demo" ? " · sample" : ""}`
       : "";
+    byId("agent-usage").hidden = !agent;
+    byId("agent-usage").textContent = agent
+      ? `Nudox calls this run: ${(agent.trace ?? []).filter(({ kind }) => kind === "nudox").length}`
+      : "";
     byId("agent-summary").textContent = agent ? agent.summary
       : selectedView === "demo" ? "Restic is verified in this story. Nothing for the agent to chase."
-      : "No investigation yet. Refresh Homelab runs the agent.";
+      : "No investigation for this run.";
     byId("agent-findings").replaceChildren(...(agent?.findings ?? []).map((f, i) => {
       const box = el("details", "finding " + f.severity);
       if (i === 0) box.open = true;
@@ -480,13 +521,15 @@
 
   buildMap();
   const story = byId("story");
+  const pastRuns = byId("past-runs");
   function setStory() {
     story.classList.toggle("off", selectedView !== "demo");
+    byId("history-control").hidden = selectedView !== "live" || pastRuns.options.length < 2;
     choices(byId("scenarios"), ["Snapshot missing", "Snapshot verified"], selectedScenario, "aria-pressed", (i) => { selectedScenario = i; });
   }
   if (data.live) {
     byId("views").hidden = false;
-    choices(byId("views"), ["Live", "Demo"], 0, "aria-selected", (i) => {
+    choices(byId("views"), [data.live.mock ? "Mock" : "Live", "Demo"], 0, "aria-selected", (i) => {
       selectedView = i === 0 ? "live" : "demo";
       selectedScenario = 0;
       setStory();
@@ -499,22 +542,71 @@
   if (location.protocol.startsWith("http")) {
     const ops = byId("ops"), log = byId("log");
     ops.hidden = false;
-    const buttons = ["op-unlock", "op-refresh", "op-mock"].map(byId);
+    const unlock = byId("op-unlock");
+    const buttons = ["op-refresh", "op-mock"].map(byId);
+    if (data.live && !data.live.mock) {
+      fetch("/api/history").then(async (response) => {
+        if (!response.ok) return;
+        const { runs } = await response.json();
+        for (const id of runs) {
+          const time = id.replace(/T(\d+)-(\d+)-(\d+)-(\d+)Z$/, "T$1:$2:$3.$4Z");
+          pastRuns.add(new Option(stamp(time), id));
+        }
+        byId("history-control").hidden = selectedView !== "live" || !runs.length;
+      }).catch(() => {});
+      pastRuns.onchange = async () => {
+        const id = pastRuns.value;
+        if (!id) { past = null; render(); return; }
+        try {
+          const response = await fetch("/api/history/" + encodeURIComponent(id));
+          if (!response.ok) throw new Error("Run could not be loaded.");
+          const run = await response.json();
+          if (pastRuns.value !== id) return;
+          past = run;
+          render();
+        } catch {
+          if (pastRuns.value !== id) return;
+          pastRuns.value = "";
+          past = null;
+          render();
+          log.hidden = false;
+          log.textContent = "Past run could not be loaded.";
+        }
+      };
+    }
     let wasRunning = false;
+    let pollTimer;
+    let polling = false;
     async function call(path) {
-      const r = await fetch(path, { method: "POST" });
-      if (!r.ok) log.textContent = (await r.json().catch(() => ({}))).error ?? "Request failed.";
-      poll();
+      try {
+        const r = await fetch(path, { method: "POST" });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Request failed.");
+        if (path !== "/api/unlock") wasRunning = true;
+        poll();
+      } catch (error) {
+        log.hidden = false;
+        log.textContent = error.message;
+      }
     }
     async function poll() {
+      if (polling) return;
+      clearTimeout(pollTimer);
+      polling = true;
+      let delay = 5000;
       try {
         const s = await (await fetch("/api/status")).json();
         byId("op-keys").replaceChildren(status(s.keys === 3 ? "current" : s.keys ? "stale" : "unknown", `SSH keys ${s.keys}/3`));
         byId("op-nudox").replaceChildren(status(s.nudox ? "current" : "unknown", s.nudox ? "Nudox on" : "Nudox off"));
         buttons.forEach((b) => b.disabled = !!s.running);
+        unlock.disabled = !!s.running || s.keys >= 3;
+        unlock.title = s.keys >= 3 ? "All three SSH keys are loaded." : "Load SSH keys into the Windows agent.";
         const logBtn = byId("op-log");
         logBtn.hidden = !s.lastJob;
-        logBtn.replaceChildren(status(s.running ? "stale" : s.ok ? "current" : "failed", s.running ? "Running…" : `Last ${s.lastJob}: ${s.ok ? "done" : "failed"}`));
+        logBtn.classList.toggle("is-running", !!s.running);
+        const logLabel = s.running ? "Running…" : `Last ${s.lastJob}: ${s.ok ? "done" : "failed"}`;
+        if (logBtn.textContent !== logLabel) {
+          logBtn.replaceChildren(status(s.running ? "stale" : s.ok ? "current" : "failed", logLabel));
+        }
         if (s.running) log.hidden = false;
         if (!log.hidden) {
           log.textContent = "";
@@ -524,10 +616,15 @@
         }
         if (wasRunning && !s.running && s.ok) location.href = s.lastJob === "mock" ? "/mock" : "/";
         wasRunning = !!s.running;
-        setTimeout(poll, s.running ? 1000 : 5000);
-      } catch { setTimeout(poll, 5000); }
+        delay = s.running ? 1000 : 5000;
+      } catch {
+        // The server may be restarting. Retry on the normal interval.
+      } finally {
+        polling = false;
+        pollTimer = setTimeout(poll, delay);
+      }
     }
-    byId("op-unlock").onclick = () => call("/api/unlock");
+    unlock.onclick = () => call("/api/unlock");
     byId("op-refresh").onclick = () => call("/api/refresh");
     byId("op-mock").onclick = () => call("/api/mock");
     byId("op-log").onclick = () => { log.hidden = !log.hidden; poll(); };

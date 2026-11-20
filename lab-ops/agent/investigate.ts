@@ -56,10 +56,28 @@ async function findNudox(): Promise<{ url: string; token: string } | null> {
   } catch { return null; }
 }
 
-// Hostnames and addresses never leave the machine in a prompt.
-const redact = (text: string) => text
-  .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "<ip>")
-  .replace(/\b[\w.-]+@[\w.-]+\b/g, "<user@host>");
+const receiptLines: Record<string, RegExp> = {
+  "mint-archive-receipts.txt": /^(?:receipt-v1|as-of\|\d{10}|(?:nextcloud-guest|nextcloud-files|forgejo-present)\|(?:missing|\d{10}(?:\.\d+)?))$/,
+  "mint-forgejo-drift.txt": /^(?:forgejo-drift-v1|as-of\|\d{10}|mint-forgejo-(?:script|service|timer)\|(?:passed|failed|unknown))$/,
+  "pi5-restic.txt": /^(?:restic-v1|as-of\|\d{10}|(?:pi5-restic-job|pi5-backup)\|(?:none|\d{10}(?:\.\d+)?\|(?:passed|failed)))$/,
+  "mint-restic-check.txt": /^(?:restic-v1|as-of\|\d{10}|mint-check\|(?:none|\d{10}(?:\.\d+)?\|(?:passed|failed)))$/,
+};
+
+// Only structured observations and a projection of the diff reach the agent.
+function projectReceipt(name: string, text: string): string {
+  const lines = text.split(/\r?\n/);
+  if (name !== "mint-backup-script.diff") {
+    return lines.map((line) => receiptLines[name].test(line) ? line : "").join("\n");
+  }
+  return lines.map((line) => {
+    if (!/^[+-](?![+-])/.test(line)) return "";
+    const side = line.startsWith("+") ? "deployed addition" : "checkout-only line";
+    const targets = [...new Set([...line.matchAll(/\bvzdump-lxc-(\d{3,9})(?=[-*.\s"'$]|$)/g)].map((match) => match[1]))];
+    if (targets.length) return side + " references container archive targets " + targets.join(", ");
+    if (/\b(?:KEEP_DAYS|prune|retention)\b/i.test(line)) return side + " touches retention-related code";
+    return side + " (contents withheld)";
+  }).join("\n");
+}
 
 const nudox = noNudox ? null : await findNudox();
 console.error(nudox ? "Nudox code lookup: on" : "Nudox code lookup: off");
@@ -72,8 +90,8 @@ try {
   mkdirSync(join(work, "rules"));
   cpSync(fileURLToPath(new URL("../briefing.ts", import.meta.url)), join(work, "rules", "briefing.ts"));
   if (receiptsDir) {
-    for (const name of readdirSync(receiptsDir).filter((n) => /\.(txt|diff|log)$/.test(n))) {
-      writeFileSync(join(work, "receipts", name), redact(readFileSync(join(receiptsDir, name), "utf8")).slice(0, 40_000));
+    for (const name of readdirSync(receiptsDir).filter((n) => Object.hasOwn(receiptLines, n) || n === "mint-backup-script.diff")) {
+      writeFileSync(join(work, "receipts", name), projectReceipt(name, readFileSync(join(receiptsDir, name), "utf8")).slice(0, 40_000));
     }
   }
   const line = (row: (typeof briefing)[number]) =>
@@ -115,7 +133,7 @@ try {
     "--color", "never", "-C", work,
     "--output-schema", fileURLToPath(new URL("./schema.json", import.meta.url)),
     "-o", last, ...config, "-",
-  ], { stdio: ["pipe", "pipe", "inherit"], windowsHide: true, env });
+  ], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true, env });
   child.stdin.end(prompt);
 
   // Keep a readable trace of what the agent looked at, for the dashboard.
@@ -131,21 +149,21 @@ try {
         const item = event.item ?? {};
         if (event.type !== "item.completed") continue;
         if (item.type === "command_execution" && item.command) {
-          const command = String(item.command).split(work).join(".")
-            .replace(/^"?[^"]*?(pwsh|powershell)(\.exe)?"?\s+(-NoProfile\s+)?-Command\s+/i, "")
-            .replace(/^['"]|['"]$/g, "");
-          trace.push({ kind: "ran", text: command.slice(0, 160) });
-          process.stderr.write(`  ran: ${String(item.command).slice(0, 100)}\n`);
+          const action = /\breceipts\b/i.test(item.command) ? "Reviewed receipt files"
+            : /\bbriefing\.md\b/i.test(item.command) ? "Reviewed the briefing" : "Ran a local command";
+          trace.push({ kind: "ran", text: action });
+          process.stderr.write(`  ran: ${action}\n`);
         } else if (item.type === "mcp_tool_call") {
           if (item.server === "nudox") {
-            // Show symbol names, not the absolute paths inside Nudox keys.
-            const detail = item.arguments ? " " + JSON.stringify(item.arguments)
-              .replace(/npm:lab-ops::'[^']*?([\w-]+)'\.?/g, "$1.").replace(/\\+/g, "").slice(0, 90) : "";
-            trace.push({ kind: "nudox", text: `${item.tool ?? "lookup"}${detail}` });
-            process.stderr.write(`  nudox: ${item.tool}${detail}\n`);
+            const tool = ["packages", "search", "read", "refs"].includes(item.tool) ? item.tool : "lookup";
+            const args = JSON.stringify(item.arguments ?? {});
+            const symbols = ["assessObservation", "buildBriefing", "compareBriefings",
+              "needsAttention", "nextcloudBackupCoverage", "requirements", "resticChain", "resticReadiness"]
+              .filter((symbol) => args.includes(symbol));
+            const text = symbols.length ? `${tool} · ${symbols.join(", ")}` : tool;
+            trace.push({ kind: "nudox", text });
+            process.stderr.write(`  nudox: ${text}\n`);
           }
-        } else if (item.type === "reasoning" && item.text) {
-          trace.push({ kind: "thought", text: String(item.text).replace(/\s+/g, " ").slice(0, 200) });
         }
       } catch { /* non-JSON line */ }
     }

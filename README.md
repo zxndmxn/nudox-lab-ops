@@ -48,6 +48,7 @@ node dashboard/build.ts OUT.html EVIDENCE.json [BASELINE.json] --agent FINDINGS.
 - Output follows `lab-ops/agent/schema.json`: a summary and up to four findings with severity, evidence as `file:line`, and a next step.
 - If Nudox (Lindsey) is running and signed in, the agent finds its local MCP server automatically and Codex uses Nudox `search`, `refs` and `read` to cite the rules. `--no-nudox` turns that off.
 - The Demo view shows `lab-ops/agent/sample-findings.json`, a fictional sample run.
+- The Agent panel counts recorded Nudox calls for the displayed run.
 
 ## Live evidence
 
@@ -88,6 +89,7 @@ python -m unittest discover -s tests -v       # dependency map
 
 - Receipts, evidence, findings and live dashboards stay outside the repo. The build refuses to write live output inside the checkout.
 - The agent sees redacted receipts only. Nudox only indexes `lab-ops/`: hand-written rules and fictional observations.
+- **Past runs** loads saved evidence and findings from the local server. Each run shows check states as of its original snapshot.
 - Vault notes, scripts, configs, IPs, logs and credentials never enter Git or the indexed package.
 
 ## Project layout

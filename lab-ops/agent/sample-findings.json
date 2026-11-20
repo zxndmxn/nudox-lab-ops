@@ -2,7 +2,7 @@
   "generatedAt": "2026-11-19T12:02:00Z",
   "agent": "Codex",
   "sandbox": "disposable copy",
-  "nudox": false,
+  "nudox": true,
   "summary": "Backups are not verified. The Pi 5 restic job reports success, but the newest snapshot is 11 days old, so the last 10 nightly runs may not have saved anything.",
   "findings": [
     {
@@ -57,6 +57,50 @@
     {
       "kind": "ran",
       "text": "Get-Content receipts/mint-forgejo-drift.txt"
+    },
+    {
+      "kind": "nudox",
+      "text": "packages"
+    },
+    {
+      "kind": "nudox",
+      "text": "search"
+    },
+    {
+      "kind": "nudox",
+      "text": "search"
+    },
+    {
+      "kind": "nudox",
+      "text": "search"
+    },
+    {
+      "kind": "nudox",
+      "text": "read · assessObservation, nextcloudBackupCoverage, requirements, resticReadiness"
+    },
+    {
+      "kind": "nudox",
+      "text": "refs · requirements"
+    },
+    {
+      "kind": "nudox",
+      "text": "read · resticChain"
+    },
+    {
+      "kind": "nudox",
+      "text": "refs · assessObservation"
+    },
+    {
+      "kind": "nudox",
+      "text": "refs · resticChain"
+    },
+    {
+      "kind": "nudox",
+      "text": "refs · nextcloudBackupCoverage"
+    },
+    {
+      "kind": "nudox",
+      "text": "refs · resticReadiness"
     },
     {
       "kind": "ran",
